@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 3.0
+ - [ ] Added:
+   - set --color as default
+ - [ ] FIX:
+  - fix color on request_memory
+
 ## Version 2.0
 
 ### Added:
