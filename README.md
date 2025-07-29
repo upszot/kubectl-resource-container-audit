@@ -40,29 +40,15 @@ kubectl krca --help
 ![KRCA en acción](.img/krca-help.png)
 
 🎨 Sistema de colores
-Color	Significado
-🔴 Rojo	Uso > danger-pct o uso > limit. Estado CrashLoopBackOff.
-🟡 Amarillo	Uso > warning-pct. Requests o limits no definidos. Terminated: Completed.
-🟢 Verde	Uso normal entre request y limit. Estado: Running.
-🔵 Azul	Infrautilización (< underuse-pct). Otros estados (Waiting, etc).
-🟣 Púrpura	Diferencia excesiva entre requests y limits.
 
-📥 Opciones disponibles
-```sh
-kubectl krca [OPCIONES]
-Opción	Descripción
--h, --help	Mostrar ayuda
--A, --all-namespaces	Incluir todos los namespaces
--n, --namespace	Especificar un namespace
---number	Mostrar números de fila
---debug	Activar modo de depuración
---color	Activar salida coloreada (ANSI)
--o wide	Mostrar columnas STATUS y RESTARTS
---warning-pct PCT	Porcentaje de advertencia (default: 60)
---danger-pct PCT	Porcentaje de peligro (default: 75)
---diff-pct PCT	Diferencia % para marcar como sobreasignación (default: 300)
---underuse-pct PCT	Porcentaje para marcar infrautilización (default: 5)
-```
+Color	Significado </br>
+🔴 Rojo	Uso > danger-pct o uso > limit. Estado CrashLoopBackOff. </br>
+🟡 Amarillo	Uso > warning-pct. Requests o limits no definidos. Terminated: Completed. </br>
+🟢 Verde	Uso normal entre request y limit. Estado: Running. </br>
+🔵 Azul	Infrautilización (< underuse-pct). Otros estados (Waiting, etc). </br>
+🟣 Púrpura	Diferencia excesiva entre requests y limits. </br>
+
+
 
 📊 Ejemplo de salida
 ```sh

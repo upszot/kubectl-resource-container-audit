@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+#-----------------------------------------------------------------------------------#
 # kubectl-resource-container-audit (KRCA) - Kubernetes Resource Container Auditor
+# by: upszot
+# Version 3.0
+#-----------------------------------------------------------------------------------#
 
 import argparse
 import subprocess
@@ -41,46 +45,19 @@ def show_help():
                         Especificar un namespace particular
   --number              Mostrar números de fila
   --debug               Mostrar tablas de depuración
-  --color               Habilitar salida coloreada
+  --no-color            Deshabilitar salida coloreada (color activado por defecto)
   -o, --output wide     Mostrar salida extendida (incluye STATUS y RESTARTS)
   --warning-pct PCT     Porcentaje de warning (default: {DEFAULT_WARNING_PCT}%)
   --danger-pct PCT      Porcentaje de danger (default: {DEFAULT_DANGER_PCT}%)
   --diff-pct PCT        Porcentaje de diferencia para color púrpura (default: {DEFAULT_DIFF_PCT}%)
   --underuse-pct PCT    Porcentaje para detectar infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
 
-{COLOR_BOLD}Sistema de colores:{COLOR_RESET}
-
-{COLOR_BOLD}Según consumo de recursos:{COLOR_RESET}
-  {COLOR_RED}Rojo{COLOR_RESET}:
-    - Uso > danger-pct (columnas CPU/MEMORY)
-    - Uso > Limit (columnas LIM_CPU/LIM_MEM)
-    - Estado: CrashLoopBackOff
-
-  {COLOR_YELLOW}Amarillo{COLOR_RESET}:
-    - warning-pct < Uso < danger-pct (columnas CPU/MEMORY)
-    - Requests no definidos (columnas REQ_CPU/REQ_MEM)
-    - Limits no definidos (columnas LIM_CPU/LIM_MEM)
-    - Estado: Terminated: Completed
-
-  {COLOR_GREEN}Verde{COLOR_RESET}:
-    - Uso normal entre request y limit (columnas CPU/MEMORY)
-    - Estado: Running
-
-  {COLOR_BLUE}Azul{COLOR_RESET}:
-    - Otros estados (Waiting, Terminated, etc.)
-    - Infrautilización severa (columnas REQ_CPU/REQ_MEM)
-
-  {COLOR_PURPLE}Púrpura{COLOR_RESET}:
-    - Gran diferencia entre Requests y Limits (columnas LIM_CPU/LIM_MEM)
-
-{COLOR_BOLD}Modo extendido (-o wide):{COLOR_RESET}
-  Muestra columnas adicionales:
-    - STATUS: Estado actual del contenedor
-    - RESTARTS: Número de reinicios del contenedor
-
-{COLOR_BOLD}Descripción:{COLOR_RESET}
-  Este plugin de kubectl audita el uso de recursos de los contenedores en un cluster Kubernetes,
-  con colores que indican posibles problemas de configuración o uso.
+{COLOR_BOLD}Sistema de colores (activado por defecto):{COLOR_RESET}
+  🟢 Verde  - Uso normal/Running
+  🟡 Amarillo - Advertencia/Completed
+  🔴 Rojo    - Peligro/CrashLoop
+  🟣 Púrpura - Gran diff requests/limits
+  🔵 Azul    - Infrautilización/Otros estados
 """
     print(help_text)
     sys.exit(0)
@@ -212,7 +189,8 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
     """Determina el color según la lógica de colores con umbrales configurables"""
     # Valores no definidos
     if cpu_usage in ("-", "<none>") or mem_usage in ("-", "<none>"):
-        return COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE
+        return (COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, 
+                COLOR_WHITE, COLOR_WHITE, COLOR_WHITE)
     
     try:
         # Convertir todo a valores numéricos comparables
@@ -256,10 +234,12 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
             # Uso > limit (rojo en limit)
             if lim_cpu_num and cpu_num > lim_cpu_num:
                 lim_cpu_color = COLOR_RED
+                cpu_color = COLOR_RED
             
-            # Uso normal entre request y limit (verde en uso)
-            elif req_cpu_num and lim_cpu_num and req_cpu_num < cpu_num < lim_cpu_num:
+            # Uso normal entre request y limit (verde en uso y request)
+            elif req_cpu_num and lim_cpu_num and req_cpu_num <= cpu_num <= lim_cpu_num:
                 cpu_color = COLOR_GREEN
+                req_cpu_color = COLOR_GREEN
             
             # Uso > danger-pct (rojo en uso)
             elif lim_cpu_num and (cpu_num / lim_cpu_num * 100) > danger_pct:
@@ -268,6 +248,10 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
             # warning-pct < Uso < danger-pct (amarillo en uso)
             elif lim_cpu_num and (cpu_num / lim_cpu_num * 100) > warning_pct:
                 cpu_color = COLOR_YELLOW
+            
+            # Uso por debajo del request (púrpura en request)
+            elif req_cpu_num and cpu_num < req_cpu_num:
+                req_cpu_color = COLOR_PURPLE
             
             # Infrautilización severa (azul en request)
             elif req_cpu_num and (cpu_num / req_cpu_num * 100) < underuse_pct:
@@ -284,10 +268,12 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
             # Uso > limit (rojo en limit)
             if lim_mem_num and mem_num > lim_mem_num:
                 lim_mem_color = COLOR_RED
+                mem_color = COLOR_RED
             
-            # Uso normal entre request y limit (verde en uso)
-            elif req_mem_num and lim_mem_num and req_mem_num < mem_num < lim_mem_num:
+            # Uso normal entre request y limit (verde en uso y request)
+            elif req_mem_num and lim_mem_num and req_mem_num <= mem_num <= lim_mem_num:
                 mem_color = COLOR_GREEN
+                req_mem_color = COLOR_GREEN
             
             # Uso > danger-pct (rojo en uso)
             elif lim_mem_num and (mem_num / lim_mem_num * 100) > danger_pct:
@@ -296,6 +282,10 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
             # warning-pct < Uso < danger-pct (amarillo en uso)
             elif lim_mem_num and (mem_num / lim_mem_num * 100) > warning_pct:
                 mem_color = COLOR_YELLOW
+            
+            # Uso por debajo del request (púrpura en request)
+            elif req_mem_num and mem_num < req_mem_num:
+                req_mem_color = COLOR_PURPLE
             
             # Infrautilización severa (azul en request)
             elif req_mem_num and (mem_num / req_mem_num * 100) < underuse_pct:
@@ -313,6 +303,7 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
     except (ValueError, TypeError, ZeroDivisionError):
         return (COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, 
                 COLOR_WHITE, COLOR_WHITE, COLOR_WHITE)
+
 
 def colorize_status(status, restarts):
     """Determina el color para las columnas STATUS y RESTARTS"""
@@ -335,17 +326,17 @@ def colorize_status(status, restarts):
     
     return status_color, restarts_color
 
-def print_table(title, headers, data, colorize=False, warning_pct=DEFAULT_WARNING_PCT, 
+def print_table(title, headers, data, use_color=True, warning_pct=DEFAULT_WARNING_PCT, 
                 danger_pct=DEFAULT_DANGER_PCT, diff_pct=DEFAULT_DIFF_PCT,
                 underuse_pct=DEFAULT_UNDERUSE_PCT, wide_output=False):
     """Imprime una tabla con formato y opciones de color"""
-    print(f"\n{COLOR_CYAN}=== {title} ==={COLOR_RESET}")
+    print(f"\n{COLOR_CYAN if use_color else ''}=== {title} ==={COLOR_RESET if use_color else ''}")
     
     colored_data = []
     for row in data:
         colored_row = []
         for i, item in enumerate(row):
-            if colorize:
+            if use_color:
                 if headers[i] == "NAMESPACE":
                     colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
                 elif headers[i] == "CONTAINER":
@@ -358,7 +349,10 @@ def print_table(title, headers, data, colorize=False, warning_pct=DEFAULT_WARNIN
                 colored_row.append(item)
         colored_data.append(colored_row)
     
-    print(tabulate(colored_data, headers=[f"{COLOR_BOLD}{h}{COLOR_RESET}" for h in headers], tablefmt="plain"))
+    if use_color:
+        print(tabulate(colored_data, headers=[f"{COLOR_BOLD}{h}{COLOR_RESET}" for h in headers], tablefmt="plain"))
+    else:
+        print(tabulate(colored_data, headers=headers, tablefmt="plain"))
 
 def main():
     # Verificar si se ejecuta como plugin de kubectl
@@ -373,7 +367,7 @@ def main():
     group.add_argument("-n", "--namespace", help="Kubernetes namespace")
     parser.add_argument("--number", action="store_true", help="Show row numbers")
     parser.add_argument("--debug", action="store_true", help="Show debug tables")
-    parser.add_argument("--color", action="store_true", help="Enable colored output")
+    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
     parser.add_argument("-o", "--output", help="Output format (use 'wide' for extended output)")
     parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
     
@@ -395,6 +389,7 @@ def main():
 
     # Determinar si mostrar columnas extendidas
     wide_output = args.output and args.output.lower() == "wide"
+    use_color = not args.no_color  # Color activado por defecto
 
     # Obtener datos
     pods = get_pods(args.namespace, args.all_namespaces)
@@ -466,7 +461,7 @@ def main():
         
         print_table("Resources (Requests/Limits)", 
                    headers, 
-                   resources_data, args.color, args.warning_pct, args.danger_pct, 
+                   resources_data, use_color, args.warning_pct, args.danger_pct, 
                    args.diff_pct, args.underuse_pct, wide_output)
         
         headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "MEMORY"]
@@ -475,10 +470,10 @@ def main():
         
         print_table("Metrics (Usage)", 
                    headers, 
-                   metrics_data, args.color, args.warning_pct, args.danger_pct, 
+                   metrics_data, use_color, args.warning_pct, args.danger_pct, 
                    args.diff_pct, args.underuse_pct, wide_output)
         
-        print(f"\n{COLOR_CYAN}=== Final Merged Data ==={COLOR_RESET}")
+        print(f"\n{COLOR_CYAN if use_color else ''}=== Final Merged Data ==={COLOR_RESET if use_color else ''}")
 
     # Mostrar salida final (con o sin números)
     headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "REQ_CPU", "LIM_CPU", "MEMORY", "REQ_MEM", "LIM_MEM"]
@@ -502,7 +497,7 @@ def main():
             status_color, restarts_color = colorize_status(row[9], row[10])
         
         for i, item in enumerate(row):
-            if args.color:
+            if use_color:
                 if headers[i] == "NAMESPACE":
                     colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
                 elif headers[i] == "CONTAINER":
@@ -533,12 +528,12 @@ def main():
     
     if args.number:
         print(tabulate(colored_final_data, 
-                      headers=[f"{COLOR_BOLD}{h}{COLOR_RESET}" for h in headers], 
+                      headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
                       showindex=True, 
                       tablefmt="plain"))
     else:
         print(tabulate(colored_final_data, 
-                      headers=[f"{COLOR_BOLD}{h}{COLOR_RESET}" for h in headers], 
+                      headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
                       tablefmt="plain"))
 
 if __name__ == "__main__":
