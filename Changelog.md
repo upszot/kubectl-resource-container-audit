@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 3.4
+ - [ ] Added:
+    - output  custom-columns
+ - [ ] FIX:
+    - 
+ - [ ] BUG:
+    - la opcion de debug dejo de funcionar
+
 ## Version 3.0
  - [ ] Added:
    - set --color as default

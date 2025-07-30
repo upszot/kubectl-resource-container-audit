@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------------#
 # kubectl-resource-container-audit (KRCA) - Kubernetes Resource Container Auditor
 # by: upszot
-# Version 3.0
+# Version 3.4
 #-----------------------------------------------------------------------------------#
 
 import argparse
@@ -29,6 +29,23 @@ DEFAULT_DANGER_PCT = 75
 DEFAULT_DIFF_PCT = 300
 DEFAULT_UNDERUSE_PCT = 5
 
+# Mapeo de columnas disponibles
+AVAILABLE_COLUMNS = {
+    'NAMESPACE': 0,
+    'POD': 1,
+    'CONTAINER': 2,
+    'CPU': 3,
+    'REQ_CPU': 4,
+    'LIM_CPU': 5,
+    'MEMORY': 6,
+    'REQ_MEM': 7,
+    'LIM_MEM': 8,
+    'STATUS': 9,
+    'RESTARTS': 10,
+    'NODE_IP': 11,
+    'NODE': 12
+}
+
 def show_help():
     """Muestra el mensaje de ayuda personalizado"""
     help_text = f"""
@@ -46,11 +63,16 @@ def show_help():
   --number              Mostrar números de fila
   --debug               Mostrar tablas de depuración
   --no-color            Deshabilitar salida coloreada (color activado por defecto)
-  -o, --output wide     Mostrar salida extendida (incluye STATUS y RESTARTS)
+  -o, --output FORMAT   Formato de salida (wide|custom-columns=<spec>)
+                        Ejemplo: -o custom-columns=NAMESPACE,POD,CPU,MEMORY
   --warning-pct PCT     Porcentaje de warning (default: {DEFAULT_WARNING_PCT}%)
   --danger-pct PCT      Porcentaje de danger (default: {DEFAULT_DANGER_PCT}%)
   --diff-pct PCT        Porcentaje de diferencia para color púrpura (default: {DEFAULT_DIFF_PCT}%)
   --underuse-pct PCT    Porcentaje para detectar infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
+
+{COLOR_BOLD}Columnas disponibles para custom-columns:{COLOR_RESET}
+  NAMESPACE, POD, CONTAINER, CPU, REQ_CPU, LIM_CPU, MEMORY, REQ_MEM, LIM_MEM,
+  STATUS, RESTARTS, NODE_IP, NODE
 
 {COLOR_BOLD}Sistema de colores (activado por defecto):{COLOR_RESET}
   🟢 Verde  - Uso normal/Running
@@ -113,6 +135,20 @@ def get_pod_status(pod):
         return f"Terminated: {state['terminated']['reason']}", container_status.get("restartCount", 0)
     else:
         return "Unknown", container_status.get("restartCount", 0)
+
+def get_node_info(pod):
+    """Obtiene la IP y nombre del nodo donde está alojado el pod"""
+    try:
+        node_ip = pod["status"]["hostIP"]
+    except KeyError:
+        node_ip = "<none>"
+    
+    try:
+        node_name = pod["spec"]["nodeName"]
+    except KeyError:
+        node_name = "<none>"
+    
+    return node_ip, node_name
 
 def get_container_resources(pod):
     """Extrae las configuraciones de recursos de los contenedores"""
@@ -328,7 +364,7 @@ def colorize_status(status, restarts):
 
 def print_table(title, headers, data, use_color=True, warning_pct=DEFAULT_WARNING_PCT, 
                 danger_pct=DEFAULT_DANGER_PCT, diff_pct=DEFAULT_DIFF_PCT,
-                underuse_pct=DEFAULT_UNDERUSE_PCT, wide_output=False):
+                underuse_pct=DEFAULT_UNDERUSE_PCT, wide_output=False, custom_columns=None):
     """Imprime una tabla con formato y opciones de color"""
     print(f"\n{COLOR_CYAN if use_color else ''}=== {title} ==={COLOR_RESET if use_color else ''}")
     
@@ -343,6 +379,8 @@ def print_table(title, headers, data, use_color=True, warning_pct=DEFAULT_WARNIN
                     colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
                 elif headers[i] == "POD":
                     colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
+                elif headers[i] in ["NODE_IP", "NODE"]:
+                    colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
                 else:
                     colored_row.append(item)
             else:
@@ -353,6 +391,24 @@ def print_table(title, headers, data, use_color=True, warning_pct=DEFAULT_WARNIN
         print(tabulate(colored_data, headers=[f"{COLOR_BOLD}{h}{COLOR_RESET}" for h in headers], tablefmt="plain"))
     else:
         print(tabulate(colored_data, headers=headers, tablefmt="plain"))
+
+def parse_custom_columns(spec):
+    """Parsea la especificación de columnas personalizadas"""
+    if not spec.startswith('custom-columns='):
+        return None
+    
+    columns_spec = spec.split('=', 1)[1]
+    columns = [col.strip() for col in columns_spec.split(',')]
+    
+    # Validar columnas
+    valid_columns = []
+    for col in columns:
+        if col in AVAILABLE_COLUMNS:
+            valid_columns.append(col)
+        else:
+            print(f"{COLOR_YELLOW}Advertencia: Columna '{col}' no reconocida. Columnas disponibles: {', '.join(AVAILABLE_COLUMNS.keys())}{COLOR_RESET}")
+    
+    return valid_columns if valid_columns else None
 
 def main():
     # Verificar si se ejecuta como plugin de kubectl
@@ -368,7 +424,7 @@ def main():
     parser.add_argument("--number", action="store_true", help="Show row numbers")
     parser.add_argument("--debug", action="store_true", help="Show debug tables")
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
-    parser.add_argument("-o", "--output", help="Output format (use 'wide' for extended output)")
+    parser.add_argument("-o", "--output", help="Output format (wide|custom-columns=<spec>)")
     parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
     
     # Parámetros configurables para los umbrales
@@ -387,8 +443,9 @@ def main():
     if args.help:
         show_help()
 
-    # Determinar si mostrar columnas extendidas
+    # Determinar el formato de salida
     wide_output = args.output and args.output.lower() == "wide"
+    custom_columns = args.output and parse_custom_columns(args.output)
     use_color = not args.no_color  # Color activado por defecto
 
     # Obtener datos
@@ -396,14 +453,13 @@ def main():
     metrics = get_metrics(args.namespace, args.all_namespaces)
 
     # Preparar datos para las tablas
-    resources_data = []
-    metrics_data = []
     final_data = []
 
     for pod in pods["items"]:
         pod_name = pod["metadata"]["name"]
         namespace = pod["metadata"]["namespace"]
         status, restarts = get_pod_status(pod)
+        node_ip, node_name = get_node_info(pod)
         containers = get_container_resources(pod)
         
         for container in containers:
@@ -411,121 +467,113 @@ def main():
             pod_metrics = metrics.get(pod_name, {})
             container_metrics = pod_metrics.get(container_name, {})
             
-            # Tabla de recursos (requests/limits)
+            # Tabla final con todas las columnas posibles
             row = [
-                namespace,
-                pod_name,
-                container_name,
-                container["req_cpu"],
-                container["req_mem"],
-                container["lim_cpu"],
-                container["lim_mem"]
+                namespace,                    # NAMESPACE
+                pod_name,                    # POD
+                container_name,              # CONTAINER
+                container_metrics.get("cpu", "-"),  # CPU
+                container["req_cpu"],        # REQ_CPU
+                container["lim_cpu"],        # LIM_CPU
+                container_metrics.get("memory", "-"),  # MEMORY
+                container["req_mem"],        # REQ_MEM
+                container["lim_mem"],        # LIM_MEM
+                status,                      # STATUS
+                restarts,                    # RESTARTS
+                node_ip,                     # NODE_IP
+                node_name                    # NODE
             ]
-            if wide_output:
-                row.extend([status, restarts])
-            resources_data.append(row)
-            
-            # Tabla de métricas (uso)
-            row = [
-                namespace,
-                pod_name,
-                container_name,
-                container_metrics.get("cpu", "-"),
-                container_metrics.get("memory", "-")
-            ]
-            if wide_output:
-                row.extend([status, restarts])
-            metrics_data.append(row)
-            
-            # Tabla final (merge) con nuevo orden de columnas
-            row = [
-                namespace,
-                pod_name,
-                container_name,
-                container_metrics.get("cpu", "-"),  # CPU usage
-                container["req_cpu"],               # REQ_CPU
-                container["lim_cpu"],              # LIM_CPU
-                container_metrics.get("memory", "-"),  # MEMORY usage
-                container["req_mem"],              # REQ_MEM
-                container["lim_mem"]              # LIM_MEM
-            ]
-            if wide_output:
-                row.extend([status, restarts])
             final_data.append(row)
 
-    # Mostrar tablas de debug si está habilitado
-    if args.debug:
-        headers = ["NAMESPACE", "POD", "CONTAINER", "REQ_CPU", "REQ_MEM", "LIM_CPU", "LIM_MEM"]
-        if wide_output:
-            headers.extend(["STATUS", "RESTARTS"])
+    # Determinar las columnas a mostrar
+    if custom_columns:
+        headers = custom_columns
+        # Crear índices de columnas para el filtrado
+        column_indices = [AVAILABLE_COLUMNS[col] for col in custom_columns]
+        filtered_data = [[row[i] for i in column_indices] for row in final_data]
         
-        print_table("Resources (Requests/Limits)", 
-                   headers, 
-                   resources_data, use_color, args.warning_pct, args.danger_pct, 
-                   args.diff_pct, args.underuse_pct, wide_output)
-        
-        headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "MEMORY"]
-        if wide_output:
-            headers.extend(["STATUS", "RESTARTS"])
-        
-        print_table("Metrics (Usage)", 
-                   headers, 
-                   metrics_data, use_color, args.warning_pct, args.danger_pct, 
-                   args.diff_pct, args.underuse_pct, wide_output)
-        
-        print(f"\n{COLOR_CYAN if use_color else ''}=== Final Merged Data ==={COLOR_RESET if use_color else ''}")
-
-    # Mostrar salida final (con o sin números)
-    headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "REQ_CPU", "LIM_CPU", "MEMORY", "REQ_MEM", "LIM_MEM"]
-    if wide_output:
-        headers.extend(["STATUS", "RESTARTS"])
-    
-    colored_final_data = []
-    for row in final_data:
-        colored_row = []
-        # Obtener colores para todas las columnas relevantes
-        (cpu_color, req_cpu_color, lim_cpu_color, 
-         mem_color, req_mem_color, lim_mem_color) = colorize_usage(
-            row[3], row[6],  # CPU y MEM usage
-            row[4], row[7],  # REQ CPU y MEM
-            row[5], row[8],  # LIM CPU y MEM
-            args.warning_pct, args.danger_pct, args.diff_pct, args.underuse_pct
-        )
-        
-        # Obtener colores para STATUS y RESTARTS si están presentes
-        if wide_output:
-            status_color, restarts_color = colorize_status(row[9], row[10])
-        
-        for i, item in enumerate(row):
-            if use_color:
-                if headers[i] == "NAMESPACE":
-                    colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
-                elif headers[i] == "CONTAINER":
-                    colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
-                elif headers[i] == "POD":
-                    colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
-                elif headers[i] == "CPU":
-                    colored_row.append(f"{cpu_color}{item}{COLOR_RESET}")
-                elif headers[i] == "REQ_CPU":
-                    colored_row.append(f"{req_cpu_color}{item}{COLOR_RESET}")
-                elif headers[i] == "LIM_CPU":
-                    colored_row.append(f"{lim_cpu_color}{item}{COLOR_RESET}")
-                elif headers[i] == "MEMORY":
-                    colored_row.append(f"{mem_color}{item}{COLOR_RESET}")
-                elif headers[i] == "REQ_MEM":
-                    colored_row.append(f"{req_mem_color}{item}{COLOR_RESET}")
-                elif headers[i] == "LIM_MEM":
-                    colored_row.append(f"{lim_mem_color}{item}{COLOR_RESET}")
-                elif wide_output and headers[i] == "STATUS":
-                    colored_row.append(f"{status_color}{item}{COLOR_RESET}")
-                elif wide_output and headers[i] == "RESTARTS":
-                    colored_row.append(f"{restarts_color}{item}{COLOR_RESET}")
+        # Preparar datos coloreados solo con las columnas seleccionadas
+        colored_final_data = []
+        for row in filtered_data:
+            colored_row = []
+            for i, item in enumerate(row):
+                col_name = headers[i]
+                if use_color:
+                    if col_name == "NAMESPACE":
+                        colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
+                    elif col_name == "CONTAINER":
+                        colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
+                    elif col_name == "POD":
+                        colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
+                    elif col_name in ["NODE_IP", "NODE"]:
+                        colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
+                    elif col_name == "STATUS":
+                        status_color, _ = colorize_status(item, 0)  # No necesitamos restart count aquí
+                        colored_row.append(f"{status_color}{item}{COLOR_RESET}")
+                    else:
+                        colored_row.append(item)
                 else:
                     colored_row.append(item)
-            else:
-                colored_row.append(item)
-        colored_final_data.append(colored_row)
+            colored_final_data.append(colored_row)
+            
+    else:
+        # Configuración normal o wide output
+        headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "REQ_CPU", "LIM_CPU", "MEMORY", "REQ_MEM", "LIM_MEM"]
+        if wide_output:
+            headers.extend(["STATUS", "RESTARTS", "NODE_IP", "NODE"])
+        
+        # Preparar datos coloreados para todas las columnas
+        colored_final_data = []
+        for row in final_data:
+            colored_row = []
+            # Obtener colores para todas las columnas relevantes
+            (cpu_color, req_cpu_color, lim_cpu_color, 
+             mem_color, req_mem_color, lim_mem_color) = colorize_usage(
+                row[3], row[6],  # CPU y MEM usage
+                row[4], row[7],  # REQ CPU y MEM
+                row[5], row[8],  # LIM CPU y MEM
+                args.warning_pct, args.danger_pct, args.diff_pct, args.underuse_pct
+            )
+            
+            # Obtener colores para STATUS y RESTARTS si están presentes
+            status_color, restarts_color = colorize_status(row[9], row[10]) if len(row) > 9 else (COLOR_WHITE, COLOR_WHITE)
+            
+            for i, item in enumerate(row):
+                if i >= len(headers):  # Solo mostrar las columnas seleccionadas
+                    continue
+                    
+                if use_color:
+                    if headers[i] == "NAMESPACE":
+                        colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
+                    elif headers[i] == "CONTAINER":
+                        colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
+                    elif headers[i] == "POD":
+                        colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
+                    elif headers[i] == "CPU":
+                        colored_row.append(f"{cpu_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "REQ_CPU":
+                        colored_row.append(f"{req_cpu_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "LIM_CPU":
+                        colored_row.append(f"{lim_cpu_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "MEMORY":
+                        colored_row.append(f"{mem_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "REQ_MEM":
+                        colored_row.append(f"{req_mem_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "LIM_MEM":
+                        colored_row.append(f"{lim_mem_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "STATUS":
+                        colored_row.append(f"{status_color}{item}{COLOR_RESET}")
+                    elif headers[i] == "RESTARTS":
+                        colored_row.append(f"{restarts_color}{item}{COLOR_RESET}")
+                    elif headers[i] in ["NODE_IP", "NODE"]:
+                        colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
+                    else:
+                        colored_row.append(item)
+                else:
+                    colored_row.append(item)
+            colored_final_data.append(colored_row)
     
+    # Mostrar la tabla
     if args.number:
         print(tabulate(colored_final_data, 
                       headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
