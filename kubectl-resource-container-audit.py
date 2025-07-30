@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------------#
 # kubectl-resource-container-audit (KRCA) - Kubernetes Resource Container Auditor
 # by: upszot
-# Version 3.4
+# Version 3.5 (with PDF export support)
 #-----------------------------------------------------------------------------------#
 
 import argparse
@@ -69,6 +69,7 @@ def show_help():
   --danger-pct PCT      Porcentaje de danger (default: {DEFAULT_DANGER_PCT}%)
   --diff-pct PCT        Porcentaje de diferencia para color púrpura (default: {DEFAULT_DIFF_PCT}%)
   --underuse-pct PCT    Porcentaje para detectar infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
+  --output-file FILE    Guardar salida en archivo (soporta .txt, .html, .pdf)
 
 {COLOR_BOLD}Columnas disponibles para custom-columns:{COLOR_RESET}
   NAMESPACE, POD, CONTAINER, CPU, REQ_CPU, LIM_CPU, MEMORY, REQ_MEM, LIM_MEM,
@@ -83,6 +84,33 @@ def show_help():
 """
     print(help_text)
     sys.exit(0)
+
+def print_output(text, output_file=None, use_color=True):
+    """Imprime en pantalla o guarda en archivo según corresponda"""
+    if output_file:
+        with open(output_file, 'w') as f:
+            f.write(text)
+        
+        # Conversión a PDF si es necesario
+        if output_file.endswith('.pdf'):
+            try:
+                tmp_html = "/tmp/krca_output.html"
+                # Convertir ANSI a HTML
+                os.system(f"echo '{text}' | ansi2html --inline > {tmp_html}")
+                # Convertir HTML a PDF
+                os.system(f"wkhtmltopdf {tmp_html} {output_file}")
+                os.remove(tmp_html)
+                if use_color:
+                    print(f"{COLOR_GREEN}PDF generado: {output_file}{COLOR_RESET}")
+                else:
+                    print(f"PDF generado: {output_file}")
+            except Exception as e:
+                if use_color:
+                    print(f"{COLOR_RED}Error al generar PDF: {e}{COLOR_RESET}")
+                else:
+                    print(f"Error al generar PDF: {e}")
+    else:
+        print(text)
 
 def run_cmd(cmd):
     """Ejecuta un comando en el shell y retorna su salida"""
@@ -340,7 +368,6 @@ def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
         return (COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, 
                 COLOR_WHITE, COLOR_WHITE, COLOR_WHITE)
 
-
 def colorize_status(status, restarts):
     """Determina el color para las columnas STATUS y RESTARTS"""
     status_color = COLOR_WHITE
@@ -361,36 +388,6 @@ def colorize_status(status, restarts):
         restarts_color = COLOR_YELLOW if restarts < 5 else COLOR_RED
     
     return status_color, restarts_color
-
-def print_table(title, headers, data, use_color=True, warning_pct=DEFAULT_WARNING_PCT, 
-                danger_pct=DEFAULT_DANGER_PCT, diff_pct=DEFAULT_DIFF_PCT,
-                underuse_pct=DEFAULT_UNDERUSE_PCT, wide_output=False, custom_columns=None):
-    """Imprime una tabla con formato y opciones de color"""
-    print(f"\n{COLOR_CYAN if use_color else ''}=== {title} ==={COLOR_RESET if use_color else ''}")
-    
-    colored_data = []
-    for row in data:
-        colored_row = []
-        for i, item in enumerate(row):
-            if use_color:
-                if headers[i] == "NAMESPACE":
-                    colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
-                elif headers[i] == "CONTAINER":
-                    colored_row.append(f"{COLOR_CYAN}{item}{COLOR_RESET}")
-                elif headers[i] == "POD":
-                    colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
-                elif headers[i] in ["NODE_IP", "NODE"]:
-                    colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
-                else:
-                    colored_row.append(item)
-            else:
-                colored_row.append(item)
-        colored_data.append(colored_row)
-    
-    if use_color:
-        print(tabulate(colored_data, headers=[f"{COLOR_BOLD}{h}{COLOR_RESET}" for h in headers], tablefmt="plain"))
-    else:
-        print(tabulate(colored_data, headers=headers, tablefmt="plain"))
 
 def parse_custom_columns(spec):
     """Parsea la especificación de columnas personalizadas"""
@@ -425,6 +422,7 @@ def main():
     parser.add_argument("--debug", action="store_true", help="Show debug tables")
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
     parser.add_argument("-o", "--output", help="Output format (wide|custom-columns=<spec>)")
+    parser.add_argument("--output-file", help="Save output to file (supports .txt, .html, .pdf)")
     parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
     
     # Parámetros configurables para los umbrales
@@ -446,7 +444,7 @@ def main():
     # Determinar el formato de salida
     wide_output = args.output and args.output.lower() == "wide"
     custom_columns = args.output and parse_custom_columns(args.output)
-    use_color = not args.no_color  # Color activado por defecto
+    use_color = not args.no_color
 
     # Obtener datos
     pods = get_pods(args.namespace, args.all_namespaces)
@@ -488,11 +486,9 @@ def main():
     # Determinar las columnas a mostrar
     if custom_columns:
         headers = custom_columns
-        # Crear índices de columnas para el filtrado
         column_indices = [AVAILABLE_COLUMNS[col] for col in custom_columns]
         filtered_data = [[row[i] for i in column_indices] for row in final_data]
         
-        # Preparar datos coloreados solo con las columnas seleccionadas
         colored_final_data = []
         for row in filtered_data:
             colored_row = []
@@ -508,7 +504,7 @@ def main():
                     elif col_name in ["NODE_IP", "NODE"]:
                         colored_row.append(f"{COLOR_WHITE}{item}{COLOR_RESET}")
                     elif col_name == "STATUS":
-                        status_color, _ = colorize_status(item, 0)  # No necesitamos restart count aquí
+                        status_color, _ = colorize_status(item, 0)
                         colored_row.append(f"{status_color}{item}{COLOR_RESET}")
                     else:
                         colored_row.append(item)
@@ -517,29 +513,22 @@ def main():
             colored_final_data.append(colored_row)
             
     else:
-        # Configuración normal o wide output
         headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "REQ_CPU", "LIM_CPU", "MEMORY", "REQ_MEM", "LIM_MEM"]
         if wide_output:
             headers.extend(["STATUS", "RESTARTS", "NODE_IP", "NODE"])
         
-        # Preparar datos coloreados para todas las columnas
         colored_final_data = []
         for row in final_data:
             colored_row = []
-            # Obtener colores para todas las columnas relevantes
             (cpu_color, req_cpu_color, lim_cpu_color, 
              mem_color, req_mem_color, lim_mem_color) = colorize_usage(
-                row[3], row[6],  # CPU y MEM usage
-                row[4], row[7],  # REQ CPU y MEM
-                row[5], row[8],  # LIM CPU y MEM
-                args.warning_pct, args.danger_pct, args.diff_pct, args.underuse_pct
-            )
+                row[3], row[6], row[4], row[7], row[5], row[8],
+                args.warning_pct, args.danger_pct, args.diff_pct, args.underuse_pct)
             
-            # Obtener colores para STATUS y RESTARTS si están presentes
             status_color, restarts_color = colorize_status(row[9], row[10]) if len(row) > 9 else (COLOR_WHITE, COLOR_WHITE)
             
             for i, item in enumerate(row):
-                if i >= len(headers):  # Solo mostrar las columnas seleccionadas
+                if i >= len(headers):
                     continue
                     
                 if use_color:
@@ -573,17 +562,19 @@ def main():
                     colored_row.append(item)
             colored_final_data.append(colored_row)
     
-    # Mostrar la tabla
+    # Generar salida
     if args.number:
-        print(tabulate(colored_final_data, 
-                      headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
-                      showindex=True, 
-                      tablefmt="plain"))
+        table_output = tabulate(colored_final_data, 
+                              headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
+                              showindex=True, 
+                              tablefmt="plain")
     else:
-        print(tabulate(colored_final_data, 
-                      headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
-                      tablefmt="plain"))
+        table_output = tabulate(colored_final_data, 
+                              headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
+                              tablefmt="plain")
+    
+    # Imprimir o guardar en archivo
+    print_output(table_output, args.output_file, use_color)
 
 if __name__ == "__main__":
     main()
-
