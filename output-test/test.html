@@ -44,17 +44,51 @@
                     <div class="container">
                         <table>
 <thead>
-<tr><th>NAMESPACE               </th><th>POD                      </th><th>CONTAINER  </th><th>CPU  </th><th>REQ_CPU  </th><th>LIM_CPU  </th><th>MEMORY  </th><th>REQ_MEM  </th><th>LIM_MEM  </th></tr>
+<tr><th>NAMESPACE  </th><th>POD                                    </th><th>CONTAINER              </th><th>CPU  </th><th>REQ_CPU  </th><th>LIM_CPU  </th><th>MEMORY  </th><th>REQ_MEM  </th><th>LIM_MEM  </th></tr>
 </thead>
 <tbody>
-<tr><td>zabbix00-infraestructura</td><td>backupconf-29238660-hpsh7</td><td>backup     </td><td>-    </td><td>250m     </td><td>1        </td><td>-       </td><td>16Mi     </td><td>64Mi     </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>backupconf-29239380-nqgpg</td><td>backup     </td><td>-    </td><td>250m     </td><td>1        </td><td>-       </td><td>16Mi     </td><td>64Mi     </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>backupconf-29240100-8d8hm</td><td>backup     </td><td>-    </td><td>250m     </td><td>1        </td><td>-       </td><td>16Mi     </td><td>64Mi     </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>javagw-66fb674d9-47lwp   </td><td>gateway    </td><td>3m   </td><td>100m     </td><td>250m     </td><td>97Mi    </td><td>256Mi    </td><td>384Mi    </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>mysql-56886d5c79-ffmmh   </td><td>mysql      </td><td>126m </td><td>250m     </td><td>1        </td><td>1082Mi  </td><td>1Gi      </td><td>2Gi      </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>server-fccf88d9b-l9s9x   </td><td>server     </td><td>171m </td><td>1        </td><td>2        </td><td>884Mi   </td><td>1Gi      </td><td>2Gi      </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>server-fccf88d9b-l9s9x   </td><td>logstash   </td><td>31m  </td><td>100m     </td><td>250m     </td><td>1453Mi  </td><td>2560Mi   </td><td>4Gi      </td></tr>
-<tr><td>zabbix00-infraestructura</td><td>web-667df69db5-5tt4j     </td><td>web        </td><td>1m   </td><td>250m     </td><td>500m     </td><td>73Mi    </td><td>128Mi    </td><td>256Mi    </td></tr>
+<tr><td>kube-system</td><td>coredns-d55bf6b56-df692                </td><td>coredns                </td><td>3m   </td><td>100m     </td><td>&lt;none&gt;   </td><td>78Mi    </td><td>70Mi     </td><td>170Mi    </td></tr>
+<tr><td>kube-system</td><td>coredns-d55bf6b56-sh8gw                </td><td>coredns                </td><td>2m   </td><td>100m     </td><td>&lt;none&gt;   </td><td>79Mi    </td><td>70Mi     </td><td>170Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-controller-7687b964f5-v5h7l    </td><td>csi-provisioner        </td><td>2m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>11Mi    </td><td>20Mi     </td><td>400Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-controller-7687b964f5-v5h7l    </td><td>csi-resizer            </td><td>3m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>60Mi    </td><td>20Mi     </td><td>400Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-controller-7687b964f5-v5h7l    </td><td>csi-snapshotter        </td><td>3m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>62Mi    </td><td>20Mi     </td><td>200Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-controller-7687b964f5-v5h7l    </td><td>liveness-probe         </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>10Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-controller-7687b964f5-v5h7l    </td><td>nfs                    </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>11Mi    </td><td>20Mi     </td><td>200Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-cprbs                     </td><td>liveness-probe         </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>30Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-cprbs                     </td><td>node-driver-registrar  </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>28Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-cprbs                     </td><td>nfs                    </td><td>0m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>49Mi    </td><td>20Mi     </td><td>300Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-cspm8                     </td><td>liveness-probe         </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>31Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-cspm8                     </td><td>node-driver-registrar  </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>31Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-cspm8                     </td><td>nfs                    </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>46Mi    </td><td>20Mi     </td><td>300Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-h9zgz                     </td><td>liveness-probe         </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>30Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-h9zgz                     </td><td>node-driver-registrar  </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>27Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-h9zgz                     </td><td>nfs                    </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>48Mi    </td><td>20Mi     </td><td>300Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-nsd8m                     </td><td>liveness-probe         </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>30Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-nsd8m                     </td><td>node-driver-registrar  </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>28Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-nsd8m                     </td><td>nfs                    </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>48Mi    </td><td>20Mi     </td><td>300Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-zwvbb                     </td><td>liveness-probe         </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>31Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-zwvbb                     </td><td>node-driver-registrar  </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>27Mi    </td><td>20Mi     </td><td>100Mi    </td></tr>
+<tr><td>kube-system</td><td>csi-nfs-node-zwvbb                     </td><td>nfs                    </td><td>1m   </td><td>10m      </td><td>&lt;none&gt;   </td><td>46Mi    </td><td>20Mi     </td><td>300Mi    </td></tr>
+<tr><td>kube-system</td><td>etcd-kube-ansible-06                   </td><td>etcd                   </td><td>97m  </td><td>100m     </td><td>&lt;none&gt;   </td><td>196Mi   </td><td>100Mi    </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>etcd-kube-ansible-07                   </td><td>etcd                   </td><td>95m  </td><td>100m     </td><td>&lt;none&gt;   </td><td>216Mi   </td><td>100Mi    </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-apiserver-kube-ansible-06         </td><td>kube-apiserver         </td><td>392m </td><td>250m     </td><td>&lt;none&gt;   </td><td>1046Mi  </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-apiserver-kube-ansible-07         </td><td>kube-apiserver         </td><td>343m </td><td>250m     </td><td>&lt;none&gt;   </td><td>1278Mi  </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-controller-manager-kube-ansible-06</td><td>kube-controller-manager</td><td>3m   </td><td>200m     </td><td>&lt;none&gt;   </td><td>103Mi   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-controller-manager-kube-ansible-07</td><td>kube-controller-manager</td><td>59m  </td><td>200m     </td><td>&lt;none&gt;   </td><td>192Mi   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-proxy-69848                       </td><td>kube-proxy             </td><td>1m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>89Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-proxy-99k7l                       </td><td>kube-proxy             </td><td>1m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>88Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-proxy-l2hgl                       </td><td>kube-proxy             </td><td>1m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>88Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-proxy-lt5pf                       </td><td>kube-proxy             </td><td>1m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>91Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-proxy-w6h64                       </td><td>kube-proxy             </td><td>1m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>90Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-scheduler-kube-ansible-06         </td><td>kube-scheduler         </td><td>15m  </td><td>100m     </td><td>&lt;none&gt;   </td><td>94Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-scheduler-kube-ansible-07         </td><td>kube-scheduler         </td><td>15m  </td><td>100m     </td><td>&lt;none&gt;   </td><td>95Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-vip-kube-ansible-06               </td><td>kube-vip               </td><td>3m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>69Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>kube-vip-kube-ansible-07               </td><td>kube-vip               </td><td>2m   </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td><td>11Mi    </td><td>&lt;none&gt;   </td><td>&lt;none&gt;   </td></tr>
+<tr><td>kube-system</td><td>metrics-server-546847c446-5gmqx        </td><td>metrics-server         </td><td>4m   </td><td>100m     </td><td>200m     </td><td>84Mi    </td><td>200Mi    </td><td>400Mi    </td></tr>
+<tr><td>kube-system</td><td>metrics-server-546847c446-h67s2        </td><td>metrics-server         </td><td>3m   </td><td>100m     </td><td>200m     </td><td>80Mi    </td><td>200Mi    </td><td>400Mi    </td></tr>
+<tr><td>kube-system</td><td>sealed-secrets-56556b4cdd-hwdk4        </td><td>sealed-secrets         </td><td>1m   </td><td>100m     </td><td>150m     </td><td>63Mi    </td><td>128Mi    </td><td>192Mi    </td></tr>
+<tr><td>kube-system</td><td>sealed-secrets-web-5b588bdbff-6csd9    </td><td>sealed-secrets-web     </td><td>1m   </td><td>200m     </td><td>500m     </td><td>51Mi    </td><td>256Mi    </td><td>512Mi    </td></tr>
+<tr><td>kube-system</td><td>sealed-secrets-web-5b588bdbff-xc2pg    </td><td>sealed-secrets-web     </td><td>1m   </td><td>200m     </td><td>500m     </td><td>53Mi    </td><td>256Mi    </td><td>512Mi    </td></tr>
 </tbody>
 </table>
                     </div>
