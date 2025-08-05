@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 3.8
+ - [x] Added:
+    - Opción `--version` para mostrar la versión de la aplicación
+
 ## Version 3.7
  - [x] Added:
     - Soporte mejorado para exportación a HTML/PDF
