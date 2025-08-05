@@ -2,8 +2,8 @@
 #-----------------------------------------------------------------------------------#
 # kubectl-resource-container-audit (KRCA) - Kubernetes Resource Container Auditor
 # by: upszot
-# Version 3.7 (with improved PDF/HTML export)
 #-----------------------------------------------------------------------------------#
+__version__ = "3.8" 
 
 import argparse
 import subprocess
@@ -50,7 +50,7 @@ AVAILABLE_COLUMNS = {
 def show_help():
     """Muestra el mensaje de ayuda personalizado"""
     help_text = f"""
-{COLOR_CYAN}{COLOR_BOLD}Kubernetes Resource Container Audit (KRCA){COLOR_RESET}
+{COLOR_CYAN}{COLOR_BOLD}Kubernetes Resource Container Audit (KRCA)  v{__version__} {COLOR_RESET}
 
 {COLOR_BOLD}Uso:{COLOR_RESET}
   kubectl resource-container-audit [OPCIONES]
@@ -58,6 +58,7 @@ def show_help():
 
 {COLOR_BOLD}Opciones:{COLOR_RESET}
   -h, --help            Muestra este mensaje de ayuda
+  --version       Muestra la versión actual
   -A, --all-namespaces  Mostrar recursos en todos los namespaces
   -n, --namespace NAMESPACE
                         Especificar un namespace particular
@@ -86,6 +87,11 @@ def show_help():
   🔵 Azul    - Infrautilización/Otros estados
 """
     print(help_text)
+    sys.exit(0)
+
+def show_version():
+    """Muestra la versión actual"""
+    print(f"kubectl-resource-container-audit v{__version__}")
     sys.exit(0)
 
 def check_dependencies():
@@ -557,6 +563,7 @@ def parse_custom_columns(spec):
     
     return valid_columns if valid_columns else None
 
+
 def main():
     # Verificar si se ejecuta como plugin de kubectl
     if os.path.basename(sys.argv[0]) in ['kubectl-resource-container-audit', 'kubectl-krca']:
@@ -564,7 +571,10 @@ def main():
         if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
             sys.argv.insert(1, '--')
 
-    parser = argparse.ArgumentParser(description="Kubernetes Resource Container Audit (KRCA)", add_help=False)
+    parser = argparse.ArgumentParser(
+        description=f"Kubernetes Resource Container Audit (KRCA) v{__version__}",
+        add_help=False
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-A", "--all-namespaces", action="store_true", help="All namespaces")
     group.add_argument("-n", "--namespace", help="Kubernetes namespace")
@@ -576,6 +586,7 @@ def main():
     parser.add_argument("--force", action="store_true", help="Overwrite existing output file")
     parser.add_argument("--landscape", action="store_true", help="Landscape orientation for PDF")
     parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
+    parser.add_argument("--version", action="store_true", help="Show version information and exit")  # Línea añadida
     
     # Parámetros configurables para los umbrales
     parser.add_argument("--warning-pct", type=int, default=DEFAULT_WARNING_PCT,
@@ -588,6 +599,10 @@ def main():
                        help=f"Underuse threshold percentage (default: {DEFAULT_UNDERUSE_PCT}%%)")
     
     args = parser.parse_args()
+
+    # Verificar --version PRIMERO (antes que --help)
+    if args.version:
+        show_version()
 
     # Mostrar ayuda si se solicita
     if args.help:

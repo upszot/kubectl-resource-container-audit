@@ -17,7 +17,7 @@ Ideal para detectar:
 Ahora puedes instalar `kubectl-resource-container-audit` fácilmente con:  
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v3.7/install-krca.sh | bash
+curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/install-krca.sh | bash
 ```
 
 ✅ Requisitos
