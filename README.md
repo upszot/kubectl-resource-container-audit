@@ -13,28 +13,20 @@ Ideal para detectar:
 
 ---
 
-## 🔧 Instalación
+## 📥 Instalación  
+Ahora puedes instalar `kubectl-resource-container-audit` fácilmente con:  
 
-1. **Descargar el script**:
-
-```sh
-curl -Lo /usr/local/bin/kubectl-resource-container-audit.py https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/kubectl-resource-container-audit.py
-
-chmod +x /usr/local/bin/kubectl-resource-container-audit.py
-
-# Dependencias de Python
-pip install tabulate
-
+```bash
+curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v3.7/install-krca.sh | bash
 ```
 
-2. **Crear un enlace simbólico para registrarlo como plugin de kubectl:**
-```sh
-sudo ln -s /usr/local/bin/kubectl-resource-container-audit.py /usr/local/bin/kubectl-krca
-```
-Ahora podés usar el comando como:
-```sh
-kubectl krca
-```
+✅ Requisitos
+ - Python 3.6+ (con dependencias listadas en requirements.txt).
+ - wkhtmltopdf
+ - kubectl configurado con acceso a un cluster válido
+ - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
+
+
 
 🚀 Uso básico
 
@@ -62,15 +54,13 @@ default       job-123-fail     worker      10m   -        -        12Mi    -    
 ```
 Con colores según lo explicado anteriormente.
 
-✅ Requisitos
- - Python 3.6+
- - wkhtmltopdf
- - kubectl configurado con acceso a un cluster válido
- - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
-
 
 🧑‍💻 Autor
 Desarrollado por @upszot para entornos Kubernetes y OpenShift.
+
+## 👥 Colaboradores
+- **@Miguel** - mi 2do tester :-D
+- 
 
 📄 Licencia
 [GPL 3.0](./LICENSE)
