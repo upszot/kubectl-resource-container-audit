@@ -1,0 +1,63 @@
+
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Kubernetes Resource Audit</title>
+                    
+            <style>
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    font-family: Arial, sans-serif;
+                    font-size: 12px;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 6px;
+                    text-align: left;
+                    white-space: nowrap;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                    position: sticky;
+                    top: 0;
+                }
+                tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                tr:hover {
+                    background-color: #f1f1f1;
+                }
+                .container {
+                    overflow-x: auto;
+                    margin: 10px;
+                }
+                @page {
+                    size: A4 landscape;
+                    margin: 10mm;
+                }
+            </style>
+            
+                </head>
+                <body>
+                    <div class="container">
+                        <table>
+<thead>
+<tr><th>NAMESPACE               </th><th>POD                      </th><th>CONTAINER  </th><th>CPU  </th><th>REQ_CPU  </th><th>LIM_CPU  </th><th>MEMORY  </th><th>REQ_MEM  </th><th>LIM_MEM  </th></tr>
+</thead>
+<tbody>
+<tr><td>zabbix00-infraestructura</td><td>backupconf-29238660-hpsh7</td><td>backup     </td><td>-    </td><td>250m     </td><td>1        </td><td>-       </td><td>16Mi     </td><td>64Mi     </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>backupconf-29239380-nqgpg</td><td>backup     </td><td>-    </td><td>250m     </td><td>1        </td><td>-       </td><td>16Mi     </td><td>64Mi     </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>backupconf-29240100-8d8hm</td><td>backup     </td><td>-    </td><td>250m     </td><td>1        </td><td>-       </td><td>16Mi     </td><td>64Mi     </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>javagw-66fb674d9-47lwp   </td><td>gateway    </td><td>3m   </td><td>100m     </td><td>250m     </td><td>97Mi    </td><td>256Mi    </td><td>384Mi    </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>mysql-56886d5c79-ffmmh   </td><td>mysql      </td><td>126m </td><td>250m     </td><td>1        </td><td>1082Mi  </td><td>1Gi      </td><td>2Gi      </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>server-fccf88d9b-l9s9x   </td><td>server     </td><td>171m </td><td>1        </td><td>2        </td><td>884Mi   </td><td>1Gi      </td><td>2Gi      </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>server-fccf88d9b-l9s9x   </td><td>logstash   </td><td>31m  </td><td>100m     </td><td>250m     </td><td>1453Mi  </td><td>2560Mi   </td><td>4Gi      </td></tr>
+<tr><td>zabbix00-infraestructura</td><td>web-667df69db5-5tt4j     </td><td>web        </td><td>1m   </td><td>250m     </td><td>500m     </td><td>73Mi    </td><td>128Mi    </td><td>256Mi    </td></tr>
+</tbody>
+</table>
+                    </div>
+                </body>
+            </html>
+            

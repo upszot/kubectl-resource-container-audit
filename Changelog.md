@@ -9,10 +9,10 @@
  - [x] FIX:
     - Corrección de funciones faltantes que causaban errores
     - Mejora en el formato de tablas para exportación
+    - Reemplazado `text=True` por `universal_newlines=True` en `subprocess.check_output()` para soportar Python 3.6.8 (Gracias **@miguel**)
  - [x] BUG:
     - Solucionado problema con códigos ANSI en headers de archivos exportados
     - Corregido error al verificar dependencias para PDF
-  
 
 ## Version 3.4
  - [ ] Added:

@@ -264,7 +264,8 @@ def print_output(text, output_file=None, use_color=True, force=False, landscape=
 def run_cmd(cmd):
     """Ejecuta un comando en el shell y retorna su salida"""
     try:
-        return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.PIPE)
+        # return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.PIPE)
+        return subprocess.check_output(cmd, shell=True, universal_newlines=True, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError as e:
         print(f"{COLOR_RED}Error ejecutando comando: {e.cmd}{COLOR_RESET}")
         print(f"Mensaje de error: {e.stderr}")

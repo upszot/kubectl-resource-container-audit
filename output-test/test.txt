@@ -1,0 +1,9 @@
+[1mNAMESPACE[0m               	[1mPOD[0m                      	[1mCONTAINER[0m  	[1mCPU[0m  	[1mREQ_CPU[0m  	[1mLIM_CPU[0m  	[1mMEMORY[0m  	[1mREQ_MEM[0m  	[1mLIM_MEM[0m
+[36mzabbix00-infraestructura[0m	[37mbackupconf-29238660-hpsh7[0m	[36mbackup[0m     	[37m-[0m    	[37m250m[0m     	[37m1[0m        	[37m-[0m       	[37m16Mi[0m     	[37m64Mi[0m
+[36mzabbix00-infraestructura[0m	[37mbackupconf-29239380-nqgpg[0m	[36mbackup[0m     	[37m-[0m    	[37m250m[0m     	[37m1[0m        	[37m-[0m       	[37m16Mi[0m     	[37m64Mi[0m
+[36mzabbix00-infraestructura[0m	[37mbackupconf-29240100-8d8hm[0m	[36mbackup[0m     	[37m-[0m    	[37m250m[0m     	[37m1[0m        	[37m-[0m       	[37m16Mi[0m     	[37m64Mi[0m
+[36mzabbix00-infraestructura[0m	[37mjavagw-66fb674d9-47lwp[0m   	[36mgateway[0m    	[37m1m[0m   	[35m100m[0m     	[37m250m[0m     	[37m97Mi[0m    	[35m256Mi[0m    	[37m384Mi[0m
+[36mzabbix00-infraestructura[0m	[37mmysql-56886d5c79-ffmmh[0m   	[36mmysql[0m      	[31m135m[0m 	[37m250m[0m     	[31m1[0m        	[32m1083Mi[0m  	[32m1Gi[0m      	[37m2Gi[0m
+[36mzabbix00-infraestructura[0m	[37mserver-fccf88d9b-l9s9x[0m   	[36mserver[0m     	[31m236m[0m 	[37m1[0m        	[31m2[0m        	[37m899Mi[0m   	[35m1Gi[0m      	[37m2Gi[0m
+[36mzabbix00-infraestructura[0m	[37mserver-fccf88d9b-l9s9x[0m   	[36mlogstash[0m   	[37m30m[0m  	[35m100m[0m     	[37m250m[0m     	[37m1453Mi[0m  	[35m2560Mi[0m   	[37m4Gi[0m
+[36mzabbix00-infraestructura[0m	[37mweb-667df69db5-5tt4j[0m     	[36mweb[0m        	[37m1m[0m   	[35m250m[0m     	[37m500m[0m     	[37m73Mi[0m    	[35m128Mi[0m    	[37m256Mi[0m
