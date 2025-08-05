@@ -1,5 +1,19 @@
 # Changelog
 
+## Version 3.7
+ - [x] Added:
+    - Soporte mejorado para exportación a HTML/PDF
+    - Opción `--landscape` para orientación horizontal en PDF
+    - Eliminación automática de códigos ANSI en headers para exportación
+    - Opción `--force` para sobrescribir archivos existentes
+ - [x] FIX:
+    - Corrección de funciones faltantes que causaban errores
+    - Mejora en el formato de tablas para exportación
+ - [x] BUG:
+    - Solucionado problema con códigos ANSI en headers de archivos exportados
+    - Corregido error al verificar dependencias para PDF
+  
+
 ## Version 3.4
  - [ ] Added:
     - output  custom-columns
@@ -8,11 +22,13 @@
  - [ ] BUG:
     - la opcion de debug dejo de funcionar
 
+
 ## Version 3.0
  - [ ] Added:
    - set --color as default
  - [ ] FIX:
   - fix color on request_memory
+
 
 ## Version 2.0
 
@@ -55,6 +71,10 @@
 - `--danger-pct PCT`: Porcentaje para peligro (default: 75).
 - `--diff-pct PCT`: Porcentaje de diferencia entre request y limit para marcar en púrpura (default: 300).
 - `--underuse-pct PCT`: Umbral de infrautilización para marcar en azul (default: 5).
+- `--output-file FILE`: Guardar salida en archivo (soporta .txt, .html, .pdf).
+- `--force`: Sobrescribir archivo existente.
+- `--landscape`: Orientación horizontal para PDF.
+
 
 ### Description:
 Este plugin de `kubectl` audita el uso de recursos de los contenedores en un cluster Kubernetes/OpenShift, resaltando en colores posibles problemas de consumo y configuración para facilitar su detección.

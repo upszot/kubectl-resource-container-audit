@@ -21,6 +21,10 @@ Ideal para detectar:
 curl -Lo /usr/local/bin/kubectl-resource-container-audit.py https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/kubectl-resource-container-audit.py
 
 chmod +x /usr/local/bin/kubectl-resource-container-audit.py
+
+# Dependencias de Python
+pip install tabulate
+
 ```
 
 2. **Crear un enlace simbólico para registrarlo como plugin de kubectl:**
@@ -37,7 +41,7 @@ kubectl krca
 ```sh
 kubectl krca --help
 ```
-![KRCA en acción](.img/krca-help.png)
+![KRCA en acción](.img/krca--help.png)
 
 🎨 Sistema de colores
 
@@ -60,6 +64,7 @@ Con colores según lo explicado anteriormente.
 
 ✅ Requisitos
  - Python 3.6+
+ - wkhtmltopdf
  - kubectl configurado con acceso a un cluster válido
  - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
 

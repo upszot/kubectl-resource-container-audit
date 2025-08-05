@@ -1,0 +1,2 @@
+# Dependencias de Python para KRCA
+tabulate>=0.8.0

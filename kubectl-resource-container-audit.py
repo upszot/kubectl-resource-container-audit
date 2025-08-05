@@ -2,7 +2,7 @@
 #-----------------------------------------------------------------------------------#
 # kubectl-resource-container-audit (KRCA) - Kubernetes Resource Container Auditor
 # by: upszot
-# Version 3.5 (with PDF export support)
+# Version 3.7 (with improved PDF/HTML export)
 #-----------------------------------------------------------------------------------#
 
 import argparse
@@ -11,6 +11,7 @@ import json
 from tabulate import tabulate
 import sys
 import os
+import re
 
 # Códigos de color ANSI
 COLOR_RESET = "\033[0m"
@@ -70,6 +71,8 @@ def show_help():
   --diff-pct PCT        Porcentaje de diferencia para color púrpura (default: {DEFAULT_DIFF_PCT}%)
   --underuse-pct PCT    Porcentaje para detectar infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
   --output-file FILE    Guardar salida en archivo (soporta .txt, .html, .pdf)
+  --force               Sobrescribir archivo existente
+  --landscape           Orientación horizontal para PDF
 
 {COLOR_BOLD}Columnas disponibles para custom-columns:{COLOR_RESET}
   NAMESPACE, POD, CONTAINER, CPU, REQ_CPU, LIM_CPU, MEMORY, REQ_MEM, LIM_MEM,
@@ -85,32 +88,178 @@ def show_help():
     print(help_text)
     sys.exit(0)
 
-def print_output(text, output_file=None, use_color=True):
+def check_dependencies():
+    """Verifica todas las dependencias necesarias"""
+    missing = []
+    
+    # Verificar módulos Python
+    try:
+        import tabulate
+    except ImportError:
+        missing.append("El módulo 'tabulate' no está instalado (pip install tabulate)")
+    
+    # Verificar wkhtmltopdf (solo necesario para exportar PDF)
+    if os.system("which wkhtmltopdf > /dev/null 2>&1") != 0:
+        missing.append("wkhtmltopdf no está instalado (necesario para exportar PDF)")
+    
+    # Verificar versión de Python
+    if sys.version_info < (3, 6):
+        missing.append(f"Se requiere Python 3.6+ (tienes {sys.version.split()[0]})")
+    
+    if missing:
+        error_msg = "Error: Dependencias faltantes:\n- " + "\n- ".join(missing)
+        error_msg += "\n\nInstale las dependencias con:\n"
+        error_msg += "  pip install -r requirements.txt\n"
+        error_msg += "Y para wkhtmltopdf:\n"
+        error_msg += "  # Debian/Ubuntu:\n  sudo apt-get install wkhtmltopdf\n"
+        error_msg += "  # RHEL/CentOS:\n  sudo yum install wkhtmltopdf"
+        return False, error_msg
+    
+    return True, ""
+
+
+def clean_ansi_codes(text):
+    """Elimina los códigos ANSI del texto"""
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+    return ansi_escape.sub('', text)
+
+def print_output(text, output_file=None, use_color=True, force=False, landscape=False):
     """Imprime en pantalla o guarda en archivo según corresponda"""
-    if output_file:
-        with open(output_file, 'w') as f:
-            f.write(text)
-        
-        # Conversión a PDF si es necesario
-        if output_file.endswith('.pdf'):
-            try:
-                tmp_html = "/tmp/krca_output.html"
-                # Convertir ANSI a HTML
-                os.system(f"echo '{text}' | ansi2html --inline > {tmp_html}")
-                # Convertir HTML a PDF
-                os.system(f"wkhtmltopdf {tmp_html} {output_file}")
-                os.remove(tmp_html)
-                if use_color:
-                    print(f"{COLOR_GREEN}PDF generado: {output_file}{COLOR_RESET}")
-                else:
-                    print(f"PDF generado: {output_file}")
-            except Exception as e:
-                if use_color:
-                    print(f"{COLOR_RED}Error al generar PDF: {e}{COLOR_RESET}")
-                else:
-                    print(f"Error al generar PDF: {e}")
-    else:
+    if not output_file:
         print(text)
+        return
+    
+    # Verificar si el archivo existe
+    if os.path.exists(output_file) and not force:
+        if use_color:
+            print(f"{COLOR_RED}Error: El archivo {output_file} ya existe. Use --force para sobrescribir.{COLOR_RESET}")
+        else:
+            print(f"Error: El archivo {output_file} ya existe. Use --force para sobrescribir.")
+        return
+    
+    try:
+        # Para archivos de texto plano (.txt)
+        if output_file.endswith('.txt'):
+            with open(output_file, 'w') as f:
+                # Eliminar códigos ANSI si no se usa color
+                if not use_color:
+                    text = clean_ansi_codes(text)
+                f.write(text)
+        
+        # Para archivos HTML/PDF
+        elif output_file.endswith(('.html', '.pdf')):
+            # Extraer datos y cabeceras del texto formateado
+            lines = text.split('\n')
+            headers = []
+            data = []
+            
+            # Procesar encabezados (eliminando códigos ANSI)
+            if lines and len(lines) > 0:
+                clean_header = clean_ansi_codes(lines[0])
+                headers = [h.strip() for h in clean_header.split('\t') if h.strip()]
+            
+            # Procesar datos
+            for line in lines[1:]:
+                if line.strip():
+                    # Eliminar códigos ANSI y dividir
+                    clean_line = clean_ansi_codes(line)
+                    row = [cell.strip() for cell in clean_line.split('\t') if cell.strip()]
+                    if row:
+                        data.append(row)
+            
+            # Generar tabla HTML con estilo mejorado
+            html_table = tabulate(data, headers=headers, tablefmt='html')
+            
+            # CSS para la tabla
+            table_style = """
+            <style>
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    font-family: Arial, sans-serif;
+                    font-size: 12px;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 6px;
+                    text-align: left;
+                    white-space: nowrap;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                    position: sticky;
+                    top: 0;
+                }
+                tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                tr:hover {
+                    background-color: #f1f1f1;
+                }
+                .container {
+                    overflow-x: auto;
+                    margin: 10px;
+                }
+                @page {
+                    size: A4 landscape;
+                    margin: 10mm;
+                }
+            </style>
+            """
+            
+            full_html = f"""
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Kubernetes Resource Audit</title>
+                    {table_style}
+                </head>
+                <body>
+                    <div class="container">
+                        {html_table}
+                    </div>
+                </body>
+            </html>
+            """
+            
+            # Para HTML
+            if output_file.endswith('.html'):
+                with open(output_file, 'w') as f:
+                    f.write(full_html)
+            
+            # Para PDF
+            else:
+                tmp_html = "/tmp/krca_output.html"
+                with open(tmp_html, 'w') as f:
+                    f.write(full_html)
+                
+                try:
+                    # Opciones para wkhtmltopdf
+                    options = "--quiet --enable-local-file-access"
+                    if landscape:
+                        options += " -O landscape"
+                    
+                    os.system(f"wkhtmltopdf {options} {tmp_html} {output_file}")
+                    os.remove(tmp_html)
+                    if use_color:
+                        print(f"{COLOR_GREEN}PDF generado: {output_file}{COLOR_RESET}")
+                    else:
+                        print(f"PDF generado: {output_file}")
+                except Exception as e:
+                    if use_color:
+                        print(f"{COLOR_RED}Error al generar PDF: {e}{COLOR_RESET}")
+                    else:
+                        print(f"Error al generar PDF: {e}")
+        
+        else:
+            raise ValueError(f"Formato de archivo no soportado: {output_file}")
+    
+    except Exception as e:
+        if use_color:
+            print(f"{COLOR_RED}Error al guardar archivo: {e}{COLOR_RESET}")
+        else:
+            print(f"Error al guardar archivo: {e}")
 
 def run_cmd(cmd):
     """Ejecuta un comando en el shell y retorna su salida"""
@@ -423,6 +572,8 @@ def main():
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
     parser.add_argument("-o", "--output", help="Output format (wide|custom-columns=<spec>)")
     parser.add_argument("--output-file", help="Save output to file (supports .txt, .html, .pdf)")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing output file")
+    parser.add_argument("--landscape", action="store_true", help="Landscape orientation for PDF")
     parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
     
     # Parámetros configurables para los umbrales
@@ -440,6 +591,13 @@ def main():
     # Mostrar ayuda si se solicita
     if args.help:
         show_help()
+
+    # Verificar dependencias si se va a exportar
+    if args.output_file and args.output_file.endswith(('.html', '.pdf')):
+        deps_ok, deps_msg = check_dependencies()
+        if not deps_ok:
+            print(f"{COLOR_RED}Error: {deps_msg}{COLOR_RESET}")
+            sys.exit(1)
 
     # Determinar el formato de salida
     wide_output = args.output and args.output.lower() == "wide"
@@ -562,19 +720,19 @@ def main():
                     colored_row.append(item)
             colored_final_data.append(colored_row)
     
-    # Generar salida
+    # Generar salida en formato TSV para mejor parsing
     if args.number:
         table_output = tabulate(colored_final_data, 
                               headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
                               showindex=True, 
-                              tablefmt="plain")
+                              tablefmt="tsv")
     else:
         table_output = tabulate(colored_final_data, 
                               headers=[f"{COLOR_BOLD if use_color else ''}{h}{COLOR_RESET if use_color else ''}" for h in headers], 
-                              tablefmt="plain")
+                              tablefmt="tsv")
     
     # Imprimir o guardar en archivo
-    print_output(table_output, args.output_file, use_color)
+    print_output(table_output, args.output_file, use_color, args.force, args.landscape)
 
 if __name__ == "__main__":
     main()
