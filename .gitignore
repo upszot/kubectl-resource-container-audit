@@ -208,4 +208,7 @@ __marimo__/
 
 #pruebas
 test-output.pdf
+.old-version/
+.old-version/*
+
 
