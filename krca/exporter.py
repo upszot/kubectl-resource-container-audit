@@ -82,85 +82,48 @@ class Exporter:
         with open(output_file, 'w') as f:
             f.write(html_content)
 
-    @staticmethod
-    def _export_pdf(data: str, output_file: str, landscape: bool) -> None:
-        """Exporta a archivo PDF usando wkhtmltopdf directamente"""
-        # Primero generamos HTML temporal
-        tmp_html = tempfile.NamedTemporaryFile(suffix='.html', delete=False)
-        try:
-            # Exportar a HTML primero (sin colores)
-            Exporter._export_html(ResourceColorizer.strip_colors(data), tmp_html.name)
-            
-            # Opciones para wkhtmltopdf
-            options = "--quiet --enable-local-file-access"
-            if landscape:
-                options += " -O landscape"
-            
-            # Ejecutar wkhtmltopdf directamente
-            cmd = f"wkhtmltopdf {options} {tmp_html.name} {output_file}"
-            subprocess.run(cmd, shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Error al generar PDF: {e.stderr}")
-        finally:
-            os.unlink(tmp_html.name)
 
-    @staticmethod
-    def _generate_html(table_data: List[List[str]], headers: List[str]) -> str:
-        """Genera el contenido HTML completo con estilo mejorado"""
-        html_table = tabulate(table_data, headers=headers, tablefmt='html')
-        
-        return f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Auditoría de Recursos Kubernetes</title>
+@staticmethod
+def _generate_html(table_data: List[List[str]], headers: List[str]]) -> str:
+    """Genera el contenido HTML completo con estilo minimalista"""
+    html_table = tabulate(table_data, headers=headers, tablefmt="html")
+    
+    # Estilo minimalista
+    table_style = """
     <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 10px;
-        }}
-        table {{
+        table {
             border-collapse: collapse;
             width: 100%;
+            font-family: Arial, sans-serif;
             font-size: 12px;
-            margin-bottom: 20px;
-        }}
-        th {{
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-        }}
-        td {{
-            border: 1px solid #ddd;
+            border: none;
+        }
+        th {
             padding: 6px;
             text-align: left;
-        }}
-        tr:nth-child(even) {{
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+        }
+        td {
+            padding: 6px;
+            text-align: left;
+            border: none;
+        }
+        tr:nth-child(even) {
             background-color: #f9f9f9;
-        }}
-        tr:hover {{
-            background-color: #f1f1f1;
-        }}
-        .container {{
-            overflow-x: auto;
-        }}
-        @page {{
-            size: A4;
-            margin: 10mm;
-        }}
-        @page landscape {{
-            size: A4 landscape;
-        }}
+        }
     </style>
-</head>
-<body>
-    <div class="container">
-        {html_table}
-    </div>
-</body>
-</html>"""
+    """
+    
+    return f"""
+    <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Kubernetes Resource Audit</title>
+            {table_style}
+        </head>
+        <body>
+            {html_table}
+        </body>
+    </html>
+    """
