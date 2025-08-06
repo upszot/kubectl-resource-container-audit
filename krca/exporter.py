@@ -66,51 +66,59 @@ class Exporter:
             f.write(content)
 
     @staticmethod
-    def _export_html(data: str, output_file: str, landscape: bool) -> None:
-        """Exporta a archivo HTML con estilo mejorado"""
-        # Procesar los datos para separar correctamente las columnas
+    def _export_html(data: str, output_file: str, landscape: bool, resizable_columns: bool = True) -> None:
+        """Exporta a archivo HTML con estilo mejorado y columnas redimensionables
+        Args:
+            data: Texto tabular a exportar
+            output_file: Ruta del archivo de salida
+            landscape: Orientación horizontal
+            resizable_columns: Habilita el redimensionamiento de columnas
+        """
+        # Procesamiento de datos
         lines = [line for line in ResourceColorizer.strip_colors(data).split('\n') if line.strip()]
         
         if not lines:
             raise ValueError("No hay datos para exportar")
         
-        # Procesar headers - asumimos que están separados por múltiples espacios
-        headers = [h.strip() for h in lines[0].split('  ') if h.strip()]
+        # Detectar separador (tabs o múltiples espacios)
+        separator = '\t' if '\t' in lines[0] else '  '
+        headers = [h.strip() for h in lines[0].split(separator) if h.strip()]
         
         # Procesar filas de datos
         table_data = []
         for line in lines[1:]:
             if line.strip():
-                # Dividir por múltiples espacios y limpiar cada celda
-                row = [cell.strip() for cell in line.split('  ') if cell.strip()]
+                row = [cell.strip() for cell in line.split(separator) if cell.strip()]
                 if len(row) < len(headers):
                     row.extend([''] * (len(headers) - len(row)))
                 table_data.append(row)
 
-        # Generar las partes de la tabla
+        # Generar estructura de la tabla
         thead = "<thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead>"
-        
-        tbody_rows = []
-        for row in table_data:
-            tbody_rows.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in row) + "</tr>")
-        tbody = "<tbody>" + "".join(tbody_rows) + "</tbody>"
+        tbody = "<tbody>" + "".join(
+            "<tr>" + "".join(f"<td>{cell}</td>" for cell in row) + "</tr>"
+            for row in table_data
+        ) + "</tbody>"
 
-        # Leer el CSS desde el archivo externo
+        # Cargar estilos base
         css_path = os.path.join(os.path.dirname(__file__), 'styles.css')
-        try:
-            with open(css_path, 'r') as css_file:
-                table_style = css_file.read()
-        except FileNotFoundError:
-            table_style = """
-            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; white-space: nowrap; }
-            th { background-color: #f2f2f2; font-weight: bold; position: sticky; top: 0; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            tr:hover { background-color: #f1f1f1; }
-            .container { overflow-x: auto; margin: 10px; }
-            @page { size: A4 landscape; margin: 10mm; }
-            """
-        
+        with open(css_path, 'r') as f:
+            table_style = f.read()
+
+        # Cargar estilos y JS para redimensionamiento si está habilitado
+        resize_script = ""
+        if resizable_columns:
+            # CSS para redimensionamiento
+            resize_css_path = os.path.join(os.path.dirname(__file__), 'resize.css')
+            with open(resize_css_path, 'r') as f:
+                table_style += f.read()
+            
+            # JavaScript para redimensionamiento
+            js_path = os.path.join(os.path.dirname(__file__), 'resize.js')
+            with open(js_path, 'r') as f:
+                resize_script = f"<script>{f.read()}</script>"
+
+        # HTML final
         full_html = f"""<!DOCTYPE html>
         <html>
             <head>
@@ -120,16 +128,17 @@ class Exporter:
             </head>
             <body>
                 <div class="container">
-                    <table>
+                    <table class="{'resizable' if resizable_columns else ''}">
                         {thead}
                         {tbody}
                     </table>
                 </div>
+                {resize_script}
             </body>
-        </html>
-        """
+        </html>"""
         
-        with open(output_file, 'w') as f:
+        # Escribir archivo de salida
+        with open(output_file, 'w', encoding='utf-8') as f:
             f.write(full_html)
 
 

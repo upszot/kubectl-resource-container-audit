@@ -1,0 +1,31 @@
+/* resize.css - Estilos para redimensionamiento de columnas */
+.resizable {
+    overflow-x: auto;
+}
+
+.resizable th {
+    position: relative;
+    min-width: 50px;
+    max-width: 500px;
+}
+
+.resizable th .grip {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 5px;
+    background: rgba(0,0,0,0.2);
+    cursor: col-resize;
+    z-index: 1;
+}
+
+.resizable th .grip:hover,
+.resizable th .grip.active {
+    background: rgba(0,0,0,0.5);
+    width: 8px;
+}
+
+.resizable th.resizing {
+    background-color: #e6e6e6;
+}
