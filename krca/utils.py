@@ -1,74 +1,51 @@
 #!/usr/bin/env python3
-# krca/utils.py - Módulo con funciones utilitarias
+# krca/utils.py - Módulo utilitario completo (Compatible con v4.0)
 
 from typing import Optional, Union
 
+# Función independiente para compatibilidad
+def calculate_percentage_diff(current: Union[float, int], reference: Union[float, int]) -> float:
+    """Calcula diferencia porcentual entre valores (compatible con v4.0)"""
+    if reference == 0:
+        return 0.0
+    return ((current - reference) / reference) * 100
+
 class KRCAUtils:
-    """Clase con funciones utilitarias para KRCA"""
+    """Clase con todas las utilidades necesarias para KRCA"""
+    
+    @staticmethod
+    def calculate_percentage_diff(current: Union[float, int], reference: Union[float, int]) -> float:
+        """Versión de clase que usa la función independiente"""
+        return calculate_percentage_diff(current, reference)
 
     @staticmethod
     def parse_resource_value(value: str) -> Optional[float]:
         """
-        Convierte valores de recursos a milicores/mebibytes numéricos
-        
-        Args:
-            value: Valor a convertir (ej. "100m", "1Gi")
-            
-        Returns:
-            Valor numérico o None si no es válido
+        Convierte valores de recursos (CPU/memoria) a números.
+        Ejemplos: "100m" -> 0.1, "1Gi" -> 1024.0
         """
         if value in ("<none>", "-", ""):
             return None
             
         try:
             if value.endswith('m'):
-                return float(value[:-1])
+                return float(value[:-1])          # 500m -> 0.5
             elif value.endswith('Ki'):
-                return float(value[:-2]) / 1024
+                return float(value[:-2]) / 1024   # 1024Ki -> 1
             elif value.endswith('Mi'):
-                return float(value[:-2])
+                return float(value[:-2])          # 512Mi -> 512
             elif value.endswith('Gi'):
-                return float(value[:-2]) * 1024
+                return float(value[:-2]) * 1024   # 2Gi -> 2048
             elif value.endswith('Ti'):
-                return float(value[:-2]) * 1024 * 1024
-            elif value.endswith('K'):
-                return float(value[:-1]) / 1000
-            elif value.endswith('M'):
-                return float(value[:-1])
-            elif value.endswith('G'):
-                return float(value[:-1]) * 1000
+                return float(value[:-2]) * 1048576 # 1Ti -> 1048576
             else:
-                return float(value) * 1000 if '.' in value else float(value)
+                return float(value)               # Valor directo
         except (ValueError, TypeError):
             return None
 
     @staticmethod
-    def calculate_percentage_diff(current: Union[float, int], reference: Union[float, int]) -> float:
-        """
-        Calcula la diferencia porcentual entre dos valores
-        
-        Args:
-            current: Valor actual
-            reference: Valor de referencia
-            
-        Returns:
-            Diferencia porcentual (100 = 100%)
-        """
-        if reference == 0:
-            return 0.0
-        return ((current - reference) / reference) * 100
-
-    @staticmethod
     def human_readable_size(size_bytes: float) -> str:
-        """
-        Convierte bytes a un formato legible (KB, MB, GB, etc.)
-        
-        Args:
-            size_bytes: Tamaño en bytes
-            
-        Returns:
-            String formateado (ej. "1.5 MB")
-        """
+        """Convierte bytes a formato legible (ej. 2048 -> '2.00 KiB')"""
         for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB']:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.2f} {unit}"
@@ -82,18 +59,7 @@ class KRCAUtils:
         diff_pct: int,
         underuse_pct: int
     ) -> bool:
-        """
-        Valida que los umbrales sean lógicos
-        
-        Args:
-            warning_pct: Porcentaje de warning
-            danger_pct: Porcentaje de danger
-            diff_pct: Porcentaje de diferencia
-            underuse_pct: Porcentaje de infrautilización
-            
-        Returns:
-            True si los umbrales son válidos
-        """
+        """Valida que los umbrales sean lógicos"""
         return (
             0 <= underuse_pct < warning_pct < danger_pct <= 1000 and
             0 < diff_pct <= 1000
@@ -104,16 +70,7 @@ class KRCAUtils:
         request: Optional[float],
         limit: Optional[float]
     ) -> Optional[float]:
-        """
-        Calcula la diferencia entre request y limit
-        
-        Args:
-            request: Valor de request
-            limit: Valor de limit
-            
-        Returns:
-            Diferencia porcentual o None si no se puede calcular
-        """
+        """Calcula diferencia porcentual entre request y limit"""
         if request is None or limit is None or request == 0:
             return None
         return ((limit - request) / request) * 100

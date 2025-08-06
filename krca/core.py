@@ -1,34 +1,43 @@
 #!/usr/bin/env python3
-# krca/core.py - Módulo principal de lógica de negocio
+# krca/core.py - Módulo principal completo (Compatible con v4.0)
 
 from tabulate import tabulate
+import traceback
+from typing import List, Dict, Any
+
+# Manejo compatible de imports
+try:
+    from .utils import calculate_percentage_diff
+except ImportError:
+    from .utils import KRCAUtils
+    calculate_percentage_diff = KRCAUtils.calculate_percentage_diff
+
 from .kubectl import KubectlClient
-from .colorizer import ResourceColorizer
+from .colorizer import ResourceColorizer, COLOR_RESET, COLOR_BOLD, COLOR_RED, COLOR_YELLOW
 from .exporter import Exporter
-from .utils import calculate_percentage_diff
 
 class KRCAnalyzer:
-    """Clase principal que coordina el análisis de recursos"""
+    """Clase principal para el análisis de recursos de Kubernetes"""
     
     def __init__(self, args):
         self.args = args
         self.use_color = not args.no_color
         self.headers = self._determine_headers()
 
-    def _determine_headers(self):
-        """Determina las cabeceras basadas en los argumentos"""
+    def _determine_headers(self) -> List[str]:
+        """Define las columnas a mostrar basadas en los argumentos"""
         base_headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "REQ_CPU", "LIM_CPU", 
                        "MEMORY", "REQ_MEM", "LIM_MEM"]
         
-        if self.args.wide_output or self.args.output_file:
+        if getattr(self.args, 'wide_output', False) or getattr(self.args, 'output_file', None):
             base_headers.extend(["STATUS", "RESTARTS", "NODE_IP", "NODE"])
         
-        if self.args.custom_columns:
+        if hasattr(self.args, 'custom_columns') and self.args.custom_columns:
             return self.args.custom_columns
         
         return base_headers
 
-    def _get_column_index(self, column_name):
+    def _get_column_index(self, column_name: str) -> int:
         """Obtiene el índice de una columna por su nombre"""
         column_mapping = {
             'NAMESPACE': 0, 'POD': 1, 'CONTAINER': 2,
@@ -39,7 +48,7 @@ class KRCAnalyzer:
         }
         return column_mapping.get(column_name, -1)
 
-    def _process_pod_data(self, pod):
+    def _process_pod_data(self, pod: Dict[str, Any]) -> List[List[str]]:
         """Procesa los datos de un pod y sus contenedores"""
         pod_data = []
         pod_name = pod["metadata"]["name"]
@@ -56,49 +65,27 @@ class KRCAnalyzer:
             container_metrics = pod_metrics.get(container_name, {})
             
             row = [
-                namespace,                    # NAMESPACE
-                pod_name,                    # POD
-                container_name,              # CONTAINER
-                container_metrics.get("cpu", "-"),  # CPU
-                container["req_cpu"],        # REQ_CPU
-                container["lim_cpu"],        # LIM_CPU
-                container_metrics.get("memory", "-"),  # MEMORY
-                container["req_mem"],        # REQ_MEM
-                container["lim_mem"],        # LIM_MEM
-                status,                      # STATUS
-                restarts,                    # RESTARTS
-                node_ip,                     # NODE_IP
-                node_name                    # NODE
+                namespace,
+                pod_name,
+                container_name,
+                container_metrics.get("cpu", "-"),
+                container["req_cpu"],
+                container["lim_cpu"],
+                container_metrics.get("memory", "-"),
+                container["req_mem"],
+                container["lim_mem"],
+                status,
+                restarts,
+                node_ip,
+                node_name
             ]
             pod_data.append(row)
         
         return pod_data
 
-    def _apply_colors(self, row):
-        """Aplica colores a una fila de datos según su estado"""
+    def _apply_colors(self, row: List[str]) -> List[str]:
+        """Aplica colores a los datos según su estado"""
         colored_row = []
-        cpu_idx = self._get_column_index('CPU')
-        req_cpu_idx = self._get_column_index('REQ_CPU')
-        lim_cpu_idx = self._get_column_index('LIM_CPU')
-        mem_idx = self._get_column_index('MEMORY')
-        req_mem_idx = self._get_column_index('REQ_MEM')
-        lim_mem_idx = self._get_column_index('LIM_MEM')
-        status_idx = self._get_column_index('STATUS')
-        restarts_idx = self._get_column_index('RESTARTS')
-
-        # Obtener colores para recursos
-        (cpu_color, req_cpu_color, lim_cpu_color,
-         mem_color, req_mem_color, lim_mem_color) = ResourceColorizer.colorize_usage(
-            row[cpu_idx], row[mem_idx],
-            row[req_cpu_idx], row[req_mem_idx],
-            row[lim_cpu_idx], row[lim_mem_idx],
-            self.args.warning_pct,
-            self.args.danger_pct,
-            self.args.diff_pct,
-            self.args.underuse_pct
-        )
-
-        # Aplicar colores a cada campo
         for i, item in enumerate(row):
             if i >= len(self.headers):
                 continue
@@ -109,102 +96,89 @@ class KRCAnalyzer:
                 colored_row.append(item)
                 continue
             
+            # Colorización especial para cada tipo de campo
             if header == "NAMESPACE":
                 colored_row.append(ResourceColorizer.colorize_namespace(item))
             elif header == "POD":
                 colored_row.append(ResourceColorizer.colorize_pod(item))
             elif header == "CONTAINER":
                 colored_row.append(ResourceColorizer.colorize_container(item))
-            elif header == "CPU":
-                colored_row.append(f"{cpu_color}{item}{COLOR_RESET}")
-            elif header == "REQ_CPU":
-                colored_row.append(f"{req_cpu_color}{item}{COLOR_RESET}")
-            elif header == "LIM_CPU":
-                colored_row.append(f"{lim_cpu_color}{item}{COLOR_RESET}")
-            elif header == "MEMORY":
-                colored_row.append(f"{mem_color}{item}{COLOR_RESET}")
-            elif header == "REQ_MEM":
-                colored_row.append(f"{req_mem_color}{item}{COLOR_RESET}")
-            elif header == "LIM_MEM":
-                colored_row.append(f"{lim_mem_color}{item}{COLOR_RESET}")
+            elif header in ["CPU", "REQ_CPU", "LIM_CPU", "MEMORY", "REQ_MEM", "LIM_MEM"]:
+                cpu_colors = ResourceColorizer.colorize_usage(
+                    row[3], row[6],  # CPU y MEMORY
+                    row[4], row[7],  # REQ_CPU y REQ_MEM
+                    row[5], row[8],  # LIM_CPU y LIM_MEM
+                    self.args.warning_pct,
+                    self.args.danger_pct,
+                    self.args.diff_pct,
+                    self.args.underuse_pct
+                )
+                color_map = {
+                    "CPU": cpu_colors[0],
+                    "REQ_CPU": cpu_colors[1],
+                    "LIM_CPU": cpu_colors[2],
+                    "MEMORY": cpu_colors[3],
+                    "REQ_MEM": cpu_colors[4],
+                    "LIM_MEM": cpu_colors[5]
+                }
+                colored_row.append(f"{color_map[header]}{item}{COLOR_RESET}")
             elif header == "STATUS":
                 status_color, _ = ResourceColorizer.colorize_status(item, 0)
                 colored_row.append(f"{status_color}{item}{COLOR_RESET}")
             elif header == "RESTARTS":
-                _, restarts_color = ResourceColorizer.colorize_status("", item)
+                _, restarts_color = ResourceColorizer.colorize_status("", int(item))
                 colored_row.append(f"{restarts_color}{item}{COLOR_RESET}")
-            elif header in ["NODE_IP", "NODE"]:
-                colored_row.append(ResourceColorizer.colorize_node(item))
             else:
                 colored_row.append(item)
         
         return colored_row
 
-    def _generate_table(self, data):
-        """Genera la tabla final para mostrar"""
-        if self.args.number:
-            return tabulate(
-                data,
-                headers=[f"{COLOR_BOLD if self.use_color else ''}{h}{COLOR_RESET if self.use_color else ''}" 
-                        for h in self.headers],
-                showindex=True,
-                tablefmt="fancy_grid" if self.use_color else "plain"
-            )
-        return tabulate(
-            data,
-            headers=[f"{COLOR_BOLD if self.use_color else ''}{h}{COLOR_RESET if self.use_color else ''}" 
-                    for h in self.headers],
-            tablefmt="fancy_grid" if self.use_color else "plain"
-        )
-
-    def analyze(self):
-        """Método principal que ejecuta el análisis completo"""
+    def analyze(self) -> int:
+        """Ejecuta el análisis completo y muestra los resultados"""
         try:
-            # Obtener datos de Kubernetes
             pods = KubectlClient.get_pods(self.args.namespace, self.args.all_namespaces)
-            
-            # Procesar todos los pods
             all_data = []
+            
             for pod in pods["items"]:
                 all_data.extend(self._process_pod_data(pod))
             
-            # Aplicar formato y colores
             colored_data = [self._apply_colors(row) for row in all_data]
             
-            # Filtrar columnas si es necesario
-            if self.args.custom_columns:
+            if hasattr(self.args, 'custom_columns') and self.args.custom_columns:
                 column_indices = [self._get_column_index(col) for col in self.args.custom_columns]
-                filtered_data = []
-                for row in colored_data:
-                    filtered_row = [row[i] for i in column_indices if i != -1]
-                    filtered_data.append(filtered_row)
-                colored_data = filtered_data
+                colored_data = [
+                    [row[i] for i in column_indices if i != -1]
+                    for row in colored_data
+                ]
             
-            # Generar salida
-            table_output = self._generate_table(colored_data)
+            table_output = tabulate(
+                colored_data,
+                headers=[f"{COLOR_BOLD if self.use_color else ''}{h}{COLOR_RESET if self.use_color else ''}" 
+                        for h in self.headers],
+                showindex=getattr(self.args, 'number', False),
+                tablefmt="fancy_grid" if self.use_color else "plain"
+            )
             
-            # Exportar o mostrar resultados
-            if self.args.output_file:
+            if hasattr(self.args, 'output_file') and self.args.output_file:
                 Exporter.export(
                     table_output,
                     self.args.output_file,
                     self.use_color,
-                    self.args.force,
-                    self.args.landscape
+                    getattr(self.args, 'force', False),
+                    getattr(self.args, 'landscape', False)
                 )
             else:
                 print(table_output)
             
             return 0
-        
+            
         except Exception as e:
             error_msg = f"{COLOR_RED}Error:{COLOR_RESET} {str(e)}"
-            if self.args.debug:
+            if getattr(self.args, 'debug', False):
                 error_msg += f"\n\n{COLOR_YELLOW}Debug info:{COLOR_RESET}\n{traceback.format_exc()}"
             print(error_msg)
             return 1
 
-def analyze_resources(args):
-    """Función de entrada para el análisis de recursos"""
-    analyzer = KRCAnalyzer(args)
-    return analyzer.analyze()
+def analyze_resources(args) -> int:
+    """Función principal para iniciar el análisis"""
+    return KRCAnalyzer(args).analyze()
