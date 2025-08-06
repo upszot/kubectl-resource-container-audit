@@ -83,7 +83,7 @@ class KubectlClient:
     @staticmethod
     def get_metrics(namespace: Optional[str] = None, all_namespaces: bool = False) -> Dict:
         """
-        Obtiene las métricas de uso de recursos
+        Obtiene las métricas de uso de recursos con validación de formatos
         
         Args:
             namespace: Namespace específico (opcional)
@@ -118,6 +118,16 @@ class KubectlClient:
                     cpu, memory = parts[2], parts[3]
                 else:
                     continue
+                
+                # Validar y normalizar el formato de memoria
+                if memory != "-":
+                    if memory.endswith('m'):  # Si es CPU (milicores)
+                        pass  # No hacer nada, es válido
+                    elif not any(x in memory for x in ['Ki', 'Mi', 'Gi']):
+                        if memory.isdigit():
+                            memory = f"{memory}Mi"  # Asumir MiB si no tiene unidad
+                        else:
+                            memory = "-"  # Valor inválido
                 
                 if pod not in metrics:
                     metrics[pod] = {}

@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-# krca/core.py - Módulo principal completo (Compatible con v4.0)
+# krca/core.py - Módulo principal completo
 
 from tabulate import tabulate
 import traceback
 from typing import List, Dict, Any
-
-# Manejo compatible de imports
-try:
-    from .utils import calculate_percentage_diff
-except ImportError:
-    from .utils import KRCAUtils
-    calculate_percentage_diff = KRCAUtils.calculate_percentage_diff
-
 from .kubectl import KubectlClient
 from .colorizer import ResourceColorizer, COLOR_RESET, COLOR_BOLD, COLOR_RED, COLOR_YELLOW
 from .exporter import Exporter
@@ -26,12 +18,29 @@ class KRCAnalyzer:
 
     def _determine_headers(self) -> List[str]:
         """Define las columnas a mostrar basadas en los argumentos"""
-        base_headers = ["NAMESPACE", "POD", "CONTAINER", "CPU", "REQ_CPU", "LIM_CPU", 
-                       "MEMORY", "REQ_MEM", "LIM_MEM"]
+        # Columnas básicas por defecto
+        base_headers = [
+            "NAMESPACE", 
+            "POD", 
+            "CONTAINER", 
+            "CPU", 
+            "REQ_CPU", 
+            "LIM_CPU", 
+            "MEMORY", 
+            "REQ_MEM", 
+            "LIM_MEM"
+        ]
         
-        if getattr(self.args, 'wide_output', False) or getattr(self.args, 'output_file', None):
-            base_headers.extend(["STATUS", "RESTARTS", "NODE_IP", "NODE"])
+        # Solo agregar columnas adicionales si se usa -o wide
+        if getattr(self.args, 'wide_output', False):
+            base_headers.extend([
+                "STATUS", 
+                "RESTARTS", 
+                "NODE_IP", 
+                "NODE"
+            ])
         
+        # Permitir columnas personalizadas si se especifican
         if hasattr(self.args, 'custom_columns') and self.args.custom_columns:
             return self.args.custom_columns
         
@@ -64,14 +73,25 @@ class KRCAnalyzer:
             container_name = container["name"]
             container_metrics = pod_metrics.get(container_name, {})
             
+            # Obtener métricas con validación
+            cpu_usage = container_metrics.get("cpu", "-")
+            memory_usage = container_metrics.get("memory", "-")
+            
+            # Asegurar que memory tenga unidades válidas
+            if memory_usage != "-" and not any(x in memory_usage for x in ['Ki', 'Mi', 'Gi']):
+                if memory_usage.isdigit():
+                    memory_usage = f"{memory_usage}Mi"
+                else:
+                    memory_usage = "-"
+            
             row = [
                 namespace,
                 pod_name,
                 container_name,
-                container_metrics.get("cpu", "-"),
+                cpu_usage,
                 container["req_cpu"],
                 container["lim_cpu"],
-                container_metrics.get("memory", "-"),
+                memory_usage,
                 container["req_mem"],
                 container["lim_mem"],
                 status,
@@ -128,6 +148,8 @@ class KRCAnalyzer:
             elif header == "RESTARTS":
                 _, restarts_color = ResourceColorizer.colorize_status("", int(item))
                 colored_row.append(f"{restarts_color}{item}{COLOR_RESET}")
+            elif header in ["NODE_IP", "NODE"]:
+                colored_row.append(ResourceColorizer.colorize_node(item))
             else:
                 colored_row.append(item)
         
@@ -144,8 +166,16 @@ class KRCAnalyzer:
             
             colored_data = [self._apply_colors(row) for row in all_data]
             
+            # Filtrar solo las columnas que queremos mostrar
             if hasattr(self.args, 'custom_columns') and self.args.custom_columns:
                 column_indices = [self._get_column_index(col) for col in self.args.custom_columns]
+                colored_data = [
+                    [row[i] for i in column_indices if i != -1]
+                    for row in colored_data
+                ]
+            else:
+                # Mostrar solo las columnas básicas si no se especifica otra cosa
+                column_indices = [self._get_column_index(col) for col in self.headers]
                 colored_data = [
                     [row[i] for i in column_indices if i != -1]
                     for row in colored_data
