@@ -64,3 +64,29 @@ Desarrollado por @upszot para entornos Kubernetes y OpenShift.
 
 📄 Licencia
 [GPL 3.0](./LICENSE)
+
+
+
+## Estructura nueva
+
+kubectl-resource-container-audit/
+│
+├── krca/                       # Paquete principal
+│   ├── __init__.py             # Para que Python lo reconozca como paquete
+│   ├── cli.py                  # Lógica de línea de comandos (argparse)
+│   ├── core.py                 # Funcionalidades principales
+│   ├── colorizer.py            # Lógica de colores y estilos
+│   ├── kubectl.py              # Interacción con kubectl
+│   ├── exporter.py             # Exportación (HTML/PDF/otros formatos)
+│   ├── utils.py                # Funciones auxiliares
+│   └── models.py               # Modelos de datos (si usas clases)
+│
+├── scripts/                    # Scripts ejecutables
+│   └── krca                    # Punto de entrada (main)
+│
+├── tests/                      # Tests unitarios
+│   ├── test_colorizer.py
+│   ├── test_kubectl.py
+│   └── ...
+│
+└── requirements.txt            # Dependencias
