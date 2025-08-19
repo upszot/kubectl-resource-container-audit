@@ -207,8 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 #pruebas
-test-output.pdf
-.old-version/
-.old-version/*
+.private/
+.private/*
 
 
