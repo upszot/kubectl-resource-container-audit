@@ -1,11 +1,13 @@
 # Changelog
 
-## Version 4.3
-  - [ ] FIX:
-    - Mejora del instalador... 
-  - [ ] BUG:
-    - Actualmente el scritp no esta funcionando correctamente si no estoy parado en el path del repositorio.
 
+## Version 4.3
+  - [X] FIX:
+    - **Instalador mejorado**: Ahora funciona independientemente del directorio actual
+    - Se agregó `krca-wrapper.sh` para configurar automáticamente el PYTHONPATH
+    - Los symlinks ahora apuntan al wrapper en lugar del script Python directamente
+  - [X] BUG:
+    - **Resuelto**: El script ahora funciona correctamente desde cualquier path
 
 ## Version 4.2
   - [X] Added:

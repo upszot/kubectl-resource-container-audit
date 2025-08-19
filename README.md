@@ -17,7 +17,7 @@ Ideal para detectar:
 Ahora puedes instalar `kubectl-resource-container-audit` fácilmente con:  
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/install-krca.sh | bash
+curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/install.sh | bash
 ```
 
 ✅ Requisitos
@@ -67,7 +67,7 @@ Desarrollado por @upszot para entornos Kubernetes y OpenShift.
 
 
 
-## Estructura nueva
+## Estructura del proyecto
 
 kubectl-resource-container-audit/
 │
@@ -83,10 +83,12 @@ kubectl-resource-container-audit/
 │
 ├── scripts/                    # Scripts ejecutables
 │   └── krca                    # Punto de entrada (main)
+│   └── krca-wrapper.sh         # Wrapper bash para instalación
 │
-├── tests/                      # Tests unitarios
-│   ├── test_colorizer.py
-│   ├── test_kubectl.py
-│   └── ...
+├── output-test/                # Ejemplos de salida
+│   ├── test.html
+│   ├── test.pdf
+│   ├── test.png
+│   └── test.txt
 │
 └── requirements.txt            # Dependencias
