@@ -1,7 +1,7 @@
 # kubectl-resource-container-audit (KRCA)
 
 `kubectl-resource-container-audit` (alias `kubectl krca`) 
-> Es un plugin de línea de comandos para `kubectl` que permite **auditar el uso de CPU y memoria** en contenedores de Kubernetes/OpenShift, </br>
+> Es un plugin de línea de comandos para `kubectl` que permite **auditar el uso de CPU,  memoria, Request y Limits** en contenedores de Kubernetes/OpenShift, </br>
 > destacando posibles problemas de configuración de recursos mediante un sistema de **colores visuales**.
 
 Ideal para detectar:

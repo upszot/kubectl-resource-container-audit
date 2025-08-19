@@ -67,53 +67,88 @@ class Exporter:
 
     @staticmethod
     def _export_html(data: str, output_file: str, landscape: bool, resizable_columns: bool = True) -> None:
-        """Exporta a archivo HTML con estilo mejorado y columnas redimensionables
-        Args:
-            data: Texto tabular a exportar
-            output_file: Ruta del archivo de salida
-            landscape: Orientación horizontal
-            resizable_columns: Habilita el redimensionamiento de columnas
-        """
-        # Procesamiento de datos
-        lines = [line for line in ResourceColorizer.strip_colors(data).split('\n') if line.strip()]
+        """Exporta a archivo HTML conservando los colores ANSI"""
+        # Procesar datos manteniendo códigos ANSI
+        lines = data.split('\n')
         
         if not lines:
             raise ValueError("No hay datos para exportar")
         
-        # Detectar separador (tabs o múltiples espacios)
+        # Detectar separador y headers
         separator = '\t' if '\t' in lines[0] else '  '
-        headers = [h.strip() for h in lines[0].split(separator) if h.strip()]
+        headers = [h.strip() for h in ResourceColorizer.strip_colors(lines[0]).split(separator) if h.strip()]
         
-        # Procesar filas de datos
+        # Mapeo completo de colores ANSI a CSS (incluyendo \033[37m)
+        ansi_to_css = {
+            '\033[30m': 'color: #000000;',  # Negro
+            '\033[31m': 'color: #cc0000;',  # Rojo
+            '\033[32m': 'color: #00cc00;',  # Verde
+            '\033[33m': 'color: #cccc00;',  # Amarillo
+            '\033[34m': 'color: #0000cc;',  # Azul
+            '\033[35m': 'color: #cc00cc;',  # Magenta
+            '\033[36m': 'color: #00cccc;',  # Cian
+            '\033[37m': 'color: #000000;',  # Originalmente blanco, ahora negro para mejor contraste
+            '\033[90m': 'color: #555555;',  # Gris oscuro
+            '\033[0m': 'color: inherit;',   # Reset
+        }
+
+        # Procesar filas conservando colores
+        def process_cell(cell, is_header=False):
+            processed = cell
+            # Primero manejar los códigos ANSI
+            for code, style in ansi_to_css.items():
+                processed = processed.replace(code, f'<span style="{style}">')
+            
+            # Manejar texto sin formato (negro por defecto)
+            if '\033[' not in cell and '<span' not in processed:
+                processed = f'<span style="color: black;">{processed}</span>'
+            
+            # Cerrar todos los spans abiertos
+            processed = processed.replace('\033[0m', '</span>')
+            
+            return processed
+
         table_data = []
         for line in lines[1:]:
             if line.strip():
-                row = [cell.strip() for cell in line.split(separator) if cell.strip()]
+                raw_row = line.split(separator)
+                row = [process_cell(cell.strip()) for cell in raw_row if cell.strip()]
                 if len(row) < len(headers):
                     row.extend([''] * (len(headers) - len(row)))
                 table_data.append(row)
 
-        # Generar estructura de la tabla
-        thead = "<thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead>"
+        # Generar tabla
+        thead = "<thead><tr>" + "".join(f"<th>{process_cell(h, True)}</th>" for h in headers) + "</tr></thead>"
         tbody = "<tbody>" + "".join(
             "<tr>" + "".join(f"<td>{cell}</td>" for cell in row) + "</tr>"
             for row in table_data
         ) + "</tbody>"
 
-        # Cargar estilos base
+        # Rest of the method remains the same...
+        # Cargar estilos
         css_path = os.path.join(os.path.dirname(__file__), 'styles.css')
         with open(css_path, 'r') as f:
             table_style = f.read()
 
-        # Cargar estilos y JS para redimensionamiento si está habilitado
-        resize_script = ""
+        # Añadir estilos para colores ANSI
+        table_style += """
+        .ansi-red { color: #cc0000; }
+        .ansi-green { color: #00cc00; }
+        .ansi-yellow { color: #cccc00; }
+        .ansi-blue { color: #0000cc; }
+        .ansi-magenta { color: #cc00cc; }
+        .ansi-cyan { color: #00cccc; }
+        """
+
+        # Cargar estilos de redimensionamiento si está habilitado
         if resizable_columns:
-            # CSS para redimensionamiento
             resize_css_path = os.path.join(os.path.dirname(__file__), 'resize.css')
             with open(resize_css_path, 'r') as f:
                 table_style += f.read()
-            
-            # JavaScript para redimensionamiento
+
+        # Cargar JavaScript si está habilitado
+        resize_script = ""
+        if resizable_columns:
             js_path = os.path.join(os.path.dirname(__file__), 'resize.js')
             with open(js_path, 'r') as f:
                 resize_script = f"<script>{f.read()}</script>"
@@ -135,12 +170,11 @@ class Exporter:
                 </div>
                 {resize_script}
             </body>
-        </html>"""
+        </html>
+        """
         
-        # Escribir archivo de salida
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(full_html)
-
 
     @staticmethod
     def _export_pdf(data: str, output_file: str, landscape: bool) -> None:

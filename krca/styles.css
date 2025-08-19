@@ -31,3 +31,12 @@ tr:hover {
     size: A4 landscape;
     margin: 10mm;
 }
+/* Asegurar color base para celdas */
+td {
+    color: black;
+}
+
+/* Estilos para texto normal */
+.normal-text {
+    color: black;
+}

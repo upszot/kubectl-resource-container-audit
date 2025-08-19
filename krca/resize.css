@@ -3,13 +3,13 @@
     overflow-x: auto;
 }
 
-.resizable th {
+.resizable th, .resizable td {
     position: relative;
     min-width: 50px;
     max-width: 500px;
 }
 
-.resizable th .grip {
+.resizable th .grip, .resizable td .grip {
     position: absolute;
     right: 0;
     top: 0;
@@ -21,11 +21,13 @@
 }
 
 .resizable th .grip:hover,
-.resizable th .grip.active {
+.resizable th .grip.active,
+.resizable td .grip:hover,
+.resizable td .grip.active {
     background: rgba(0,0,0,0.5);
     width: 8px;
 }
 
-.resizable th.resizing {
+.resizable th.resizing, .resizable td.resizing {
     background-color: #e6e6e6;
 }

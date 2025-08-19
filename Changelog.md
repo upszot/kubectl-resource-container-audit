@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 4.2
+  - [X] Added:
+    - permite hacer resize de las columnas en el html
+
 ## Version 3.8
  - [x] Added:
     - Opción `--version` para mostrar la versión de la aplicación
