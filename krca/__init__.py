@@ -2,9 +2,9 @@
 # krca/__init__.py - Inicialización del paquete KRCA
 
 # Metadata del paquete
-__version__ = "3.8"
+__version__ = "4.3"
 __author__ = "upszot"
-__license__ = "MIT"
+__license__ = "GLP3.0"
 
 # Importaciones públicas (API del paquete)
 from .cli import parse_args, show_help

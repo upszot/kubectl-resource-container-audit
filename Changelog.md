@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 4.3
+  - [ ] FIX:
+    - Mejora del instalador... 
+  - [ ] BUG:
+    - Actualmente el scritp no esta funcionando correctamente si no estoy parado en el path del repositorio.
+
+
 ## Version 4.2
   - [X] Added:
     - permite hacer resize de las columnas en el html
