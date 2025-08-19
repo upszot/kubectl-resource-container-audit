@@ -1,8 +1,8 @@
 # kubectl-resource-container-audit (KRCA)
 
-`kubectl-resource-container-audit` (alias `kubectl krca`) 
-> Es un plugin de línea de comandos para `kubectl` que permite **auditar el uso de CPU,  memoria, Request y Limits** en contenedores de Kubernetes/OpenShift, </br>
-> destacando posibles problemas de configuración de recursos mediante un sistema de **colores visuales**.
+> Es un plugin de línea de comandos para `kubectl` que permite: </br>  
+>  **auditar el uso de CPU,  memoria, Request y Limits** en contenedores de Kubernetes/OpenShift, </br>  
+> destacando posibles problemas de configuración de recursos mediante un sistema de **colores visuales**.  
 
 Ideal para detectar:
 
@@ -38,11 +38,11 @@ kubectl krca --help
 🎨 Sistema de colores
 
 Color	Significado </br>
-🔴 Rojo	Uso > danger-pct o uso > limit. Estado CrashLoopBackOff. </br>
-🟡 Amarillo	Uso > warning-pct. Requests o limits no definidos. Terminated: Completed. </br>
-🟢 Verde	Uso normal entre request y limit. Estado: Running. </br>
-🔵 Azul	Infrautilización (< underuse-pct). Otros estados (Waiting, etc). </br>
-🟣 Púrpura	Diferencia excesiva entre requests y limits. </br>
+🔴 Rojo	Uso > danger-pct o uso > limit. Estado CrashLoopBackOff. </br>  
+🟡 Amarillo	Uso > warning-pct. Requests o limits no definidos. Terminated: Completed. </br>  
+🟢 Verde	Uso normal entre request y limit. Estado: Running. </br>  
+🔵 Azul	Infrautilización (< underuse-pct). Otros estados (Waiting, etc). </br>  
+🟣 Púrpura	Diferencia excesiva entre requests y limits. </br>  
 
 
 
