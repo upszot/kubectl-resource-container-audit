@@ -69,6 +69,7 @@ Desarrollado por @upszot para entornos Kubernetes y OpenShift.
 
 ## Estructura del proyecto
 
+```sh
 kubectl-resource-container-audit/
 │
 ├── krca/                       # Paquete principal
@@ -92,3 +93,4 @@ kubectl-resource-container-audit/
 │   └── test.txt
 │
 └── requirements.txt            # Dependencias
+```
