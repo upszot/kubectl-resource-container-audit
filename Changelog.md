@@ -1,5 +1,18 @@
 # Changelog
 
+
+## Version 4.3
+  - [X] FIX:
+    - **Instalador mejorado**: Ahora funciona independientemente del directorio actual
+    - Se agregó `krca-wrapper.sh` para configurar automáticamente el PYTHONPATH
+    - Los symlinks ahora apuntan al wrapper en lugar del script Python directamente
+  - [X] BUG:
+    - **Resuelto**: El script ahora funciona correctamente desde cualquier path
+
+## Version 4.2
+  - [X] Added:
+    - permite hacer resize de las columnas en el html
+
 ## Version 3.8
  - [x] Added:
     - Opción `--version` para mostrar la versión de la aplicación
