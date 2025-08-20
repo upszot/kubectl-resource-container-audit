@@ -39,6 +39,7 @@ curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-au
  - wkhtmltopdf
  - kubectl configurado con acceso a un cluster válido
  - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
+ - [metrics-server](https://github.com/kubernetes-sigs/metrics-server) 
 
 ---
 
