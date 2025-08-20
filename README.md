@@ -64,7 +64,7 @@ kubectl krca --help
 <div>
 <table>
    <tr>
-      <td><img src=".img/krca-example.png" width="70%" align="center"></td>
+      <td><img src=".img/krca-example.png" width="80%" align="center"></td>
    </tr>
 </table>
 </div>
