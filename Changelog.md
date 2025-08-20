@@ -1,6 +1,14 @@
 # Changelog
 
 
+## Version 4.4
+- [X] FIX:
+  - Todas las mejoras son del instalador.
+    - **Dependencias completas**: requirements.txt actualizado con todas las dependencias necesarias
+    - **Instalación global**: Dependencias instaladas para todos los usuarios del sistema
+    - **Configuración automática de PYTHONPATH**: Se crea `/etc/profile.d/krca.sh` para todos los usuarios
+    - **Permisos corregidos**: Directorios y archivos con permisos 755 en lugar de 700
+  
 ## Version 4.3
   - [X] FIX:
     - **Instalador mejorado**: Ahora funciona independientemente del directorio actual

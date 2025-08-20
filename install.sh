@@ -1,10 +1,10 @@
 #!/bin/bash
-# KRCA Installer v6.1
+# KRCA Installer v6.2
 
 set -e
 
 # Configuración
-BRANCH="v4.3"
+BRANCH="v4.4"
 KRCA_REPO="https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/$BRANCH"
 INSTALL_DIR="/usr/local/share/kubectl-resource-container-audit"
 SYMLINK_DIR="/usr/local/bin"
@@ -52,14 +52,17 @@ download_files() {
     done
 }
 
-make_executable() {
-    echo -e "${YELLOW}[INFO] Configurando permisos ejecutables...${NC}"
+set_permissions() {
+    echo -e "${YELLOW}[INFO] Configurando permisos...${NC}"
+    # Permisos adecuados para directorios y archivos (755 en lugar de 700)
+    sudo chmod -R 755 "$INSTALL_DIR"
     sudo chmod +x "$INSTALL_DIR/scripts/krca"
     sudo chmod +x "$INSTALL_DIR/scripts/krca-wrapper.sh"
 }
 
 install_deps() {
     echo -e "${YELLOW}[INFO] Instalando dependencias Python...${NC}"
+    # Instalar globalmente para todos los usuarios
     pip install -r "$INSTALL_DIR/requirements.txt"
 }
 
@@ -70,32 +73,78 @@ setup_symlinks() {
     sudo ln -sf "$INSTALL_DIR/scripts/krca-wrapper.sh" "$SYMLINK_DIR/kubectl-krca"
 }
 
+setup_environment() {
+    echo -e "${YELLOW}[INFO] Configurando variables de entorno...${NC}"
+    
+    # Configurar PYTHONPATH globalmente para todos los usuarios
+    local PYTHONPATH_CONFIG="/etc/profile.d/krca.sh"
+    
+    sudo bash -c "cat > $PYTHONPATH_CONFIG" << EOF
+# KRCA environment configuration
+export PYTHONPATH="\$PYTHONPATH:$INSTALL_DIR"
+EOF
+    
+    sudo chmod 644 "$PYTHONPATH_CONFIG"
+    
+    # También agregar al usuario actual si existe .bashrc
+    if [ -f "$HOME/.bashrc" ]; then
+        if ! grep -q "PYTHONPATH.*$INSTALL_DIR" "$HOME/.bashrc"; then
+            echo "export PYTHONPATH=\"\$PYTHONPATH:$INSTALL_DIR\"" >> "$HOME/.bashrc"
+        fi
+    fi
+    
+    # Aplicar cambios al shell actual
+    export PYTHONPATH="$PYTHONPATH:$INSTALL_DIR"
+}
+
 verify_install() {
     echo -e "${YELLOW}[INFO] Verificando instalación...${NC}"
     
-    if command -v kubectl-krca &>/dev/null; then
+    # Forzar actualización del cache de comandos
+    hash -r
+    
+    if command -v kubectl-krca &>/dev/null && command -v krca &>/dev/null; then
         echo -e "${GREEN}[✓] Comandos instalados correctamente${NC}"
+        
+        # Verificar que Python puede importar los módulos
+        if python3 -c "import krca; print('KRCA module loaded successfully')" 2>/dev/null; then
+            echo -e "${GREEN}[✓] Módulos Python accesibles${NC}"
+        else
+            echo -e "${YELLOW}[!] PYTHONPATH puede requerir reinicio de sesión${NC}"
+        fi
     else
-        echo -e "${RED}[✗] Los comandos no están disponibles${NC}"
+        echo -e "${YELLOW}[!] Los comandos pueden requerir reinicio de sesión${NC}"
+        echo -e "${YELLOW}[!] O ejecuta: source /etc/profile.d/krca.sh${NC}"
     fi
 }
 
+cleanup_old_install() {
+    echo -e "${YELLOW}[INFO] Limpiando instalaciones anteriores...${NC}"
+    # Remover symlinks viejos
+    sudo rm -f "$SYMLINK_DIR/krca" "$SYMLINK_DIR/kubectl-krca"
+    # Remover configuraciones viejas de entorno
+    sudo rm -f /etc/profile.d/krca.sh
+}
+
 # --- Ejecución principal ---
-echo -e "${GREEN}=== Instalador KRCA v6.1 ===${NC}"
+echo -e "${GREEN}=== Instalador KRCA v6.2 ===${NC}"
 
 [ "$(id -u)" -eq 0 ] || {
     echo -e "${RED}[ERROR] Debes ejecutar como root/sudo${NC}"
     exit 1
 }
 
+cleanup_old_install
 create_dirs
 download_files
-make_executable
+set_permissions
 install_deps
 setup_symlinks
+setup_environment
 verify_install
 
 echo -e "\n${GREEN}[✔] Instalación completada!${NC}"
 echo -e "Usar con: ${YELLOW}kubectl krca --help${NC}"
 echo -e "O: ${YELLOW}krca --help${NC}"
-
+echo -e "${YELLOW}Nota: Puede necesitar reiniciar la sesión o ejecutar:${NC}"
+echo -e "${YELLOW}source /etc/profile.d/krca.sh${NC}"

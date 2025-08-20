@@ -1,2 +1,4 @@
 # Dependencias de Python para KRCA
 tabulate>=0.8.0
+kubernetes>=24.2.0
+dataclasses>=0.8; python_version < '3.7'
