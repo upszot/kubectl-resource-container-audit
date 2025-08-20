@@ -1,6 +1,6 @@
 <div>
 <p align="center">
-  <img src=".img/krca-logo.png" alt="KRCA Logo" width="400">
+  <img src=".img/krca-logo.png" alt="KRCA Logo" width="300">
 </p>
 
 <h1 align="center">🔍 KRCA - Kubernetes Resource Container Audit</h1>
@@ -9,6 +9,8 @@
   <strong>Monitor • Analyze • Optimize your Kubernetes resources</strong>
 </p>
 </div>
+
+
 
 > Es un plugin de línea de comandos para `kubectl` que permite:   
 >  **auditar el uso de CPU,  memoria, Request y Limits** en contenedores de Kubernetes/OpenShift,   
