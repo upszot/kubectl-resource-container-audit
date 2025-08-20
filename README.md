@@ -1,6 +1,6 @@
 <div>
 <p align="center">
-  <img src=".img/krca-logo2.png" alt="KRCA Logo" width="300">
+  <img src=".img/krca-logo2.png" alt="KRCA Logo" width="500">
 </p>
 
 <h1 align="center">🔍 KRCA - Kubernetes Resource Container Audit</h1>
