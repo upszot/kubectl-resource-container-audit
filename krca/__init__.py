@@ -2,7 +2,7 @@
 # krca/__init__.py - Inicialización del paquete KRCA
 
 # Metadata del paquete
-__version__ = "4.3"
+__version__ = "4.4"
 __author__ = "upszot"
 __license__ = "GLP3.0"
 

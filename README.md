@@ -29,13 +29,13 @@
 Ahora puedes instalar `kubectl-resource-container-audit` fácilmente con:  
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/install.sh |sudo  /bin/bash
 ```
 
 ---
 
 ✅ Requisitos
- - Python 3.6+ (con dependencias listadas en requirements.txt).
+ - Python 3.12+ (con dependencias listadas en requirements.txt).
  - wkhtmltopdf
  - kubectl configurado con acceso a un cluster válido
  - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
