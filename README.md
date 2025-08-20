@@ -101,7 +101,7 @@ kubectl-resource-container-audit/
 
 ---
 
-🧑‍💻 Autor
+🧑‍💻 Autor  
 Desarrollado por @upszot para entornos Kubernetes y OpenShift.
 
 ## 👥 Colaboradores

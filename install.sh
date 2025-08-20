@@ -15,7 +15,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Archivos necesarios (AHORA INCLUYE EL WRAPPER)
+# Archivos necesarios 
 FILES=(
     "requirements.txt"
     "krca/__init__.py"
@@ -27,7 +27,7 @@ FILES=(
     "krca/cli.py"
     "krca/core.py"
     "scripts/krca"
-    "scripts/krca-wrapper.sh"  # ← NUEVO: El wrapper bash
+    "scripts/krca-wrapper.sh"
 )
 
 create_dirs() {
