@@ -64,9 +64,9 @@ class ResourceColorizer:
             if cpu_usage in ("-", "<none>") or req_cpu in ("-", "<none>") or lim_cpu in ("-", "<none>"):
                 return (ResourceColorizer.WHITE, ResourceColorizer.WHITE, ResourceColorizer.WHITE)
             
-            cpu_num = ResourceColorizer.parse_resource_value(cpu_usage)
-            req_cpu_num = ResourceColorizer.parse_resource_value(req_cpu)
-            lim_cpu_num = ResourceColorizer.parse_resource_value(lim_cpu)
+            cpu_num = ResourceColorizer.parse_cpu_value(cpu_usage)
+            req_cpu_num = ResourceColorizer.parse_cpu_value(req_cpu)
+            lim_cpu_num = ResourceColorizer.parse_cpu_value(lim_cpu)
             
             cpu_color = ResourceColorizer.WHITE
             req_cpu_color = ResourceColorizer.WHITE
@@ -120,9 +120,9 @@ class ResourceColorizer:
             if mem_usage in ("-", "<none>") or req_mem in ("-", "<none>") or lim_mem in ("-", "<none>"):
                 return (ResourceColorizer.WHITE, ResourceColorizer.WHITE, ResourceColorizer.WHITE)
             
-            mem_num = ResourceColorizer.parse_resource_value(mem_usage)
-            req_mem_num = ResourceColorizer.parse_resource_value(req_mem)
-            lim_mem_num = ResourceColorizer.parse_resource_value(lim_mem)
+            mem_num = ResourceColorizer.parse_memory_value(mem_usage)
+            req_mem_num = ResourceColorizer.parse_memory_value(req_mem)
+            lim_mem_num = ResourceColorizer.parse_memory_value(lim_mem)
             
             mem_color = ResourceColorizer.WHITE
             req_mem_color = ResourceColorizer.WHITE
@@ -225,14 +225,62 @@ class ResourceColorizer:
         return f"{ResourceColorizer.WHITE}{name}{ResourceColorizer.RESET}"
 
     @staticmethod
+    def parse_cpu_value(value):
+        """
+        Convierte valores de CPU a milicores numéricos.
+        Ejemplos: "500m" -> 500.0, "1" -> 1000.0, "0.5" -> 500.0, "2" -> 2000.0
+        Retorna None para valores inválidos
+        """
+        if value in ("<none>", "-", None, ""):
+            return None
+
+        try:
+            value = value.strip()
+            if value.endswith('m'):
+                return float(value[:-1])
+            else:
+                # Sin sufijo 'm' => está expresado en cores completos
+                # (sea entero "1" o decimal "0.5"), siempre se convierte a milicores
+                return float(value) * 1000
+        except (ValueError, AttributeError):
+            return None
+
+    @staticmethod
+    def parse_memory_value(value):
+        """
+        Convierte valores de memoria a mebibytes (Mi) numéricos.
+        Ejemplos: "512Mi" -> 512.0, "1Gi" -> 1024.0, "1024Ki" -> 1.0
+        Retorna None para valores inválidos
+        """
+        if value in ("<none>", "-", None, ""):
+            return None
+
+        try:
+            value = value.strip()
+            if value.endswith('Ki'):
+                return float(value[:-2]) / 1024
+            elif value.endswith('Mi'):
+                return float(value[:-2])
+            elif value.endswith('Gi'):
+                return float(value[:-2]) * 1024
+            elif value.endswith('Ti'):
+                return float(value[:-2]) * 1024 * 1024
+            else:
+                # Valor sin unidad: se asume ya normalizado a Mi
+                return float(value)
+        except (ValueError, AttributeError):
+            return None
+
+    @staticmethod
     def parse_resource_value(value):
         """
-        Convierte valores de recursos a milicores/mebibytes numéricos
-        Retorna None para valores inválidos
+        DEPRECATED: se mantiene solo por compatibilidad hacia atrás.
+        Usar parse_cpu_value() o parse_memory_value() según corresponda,
+        ya que un mismo número significa cosas distintas en CPU y en memoria.
         """
         if value == "<none>" or value == "-":
             return None
-        
+
         try:
             if value.endswith('m'):
                 return float(value[:-1])
