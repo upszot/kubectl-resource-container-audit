@@ -4,7 +4,7 @@
 set -e
 
 # Configuración
-BRANCH="v4.4"
+BRANCH="v4.5"
 KRCA_REPO="https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/$BRANCH"
 INSTALL_DIR="/usr/local/share/kubectl-resource-container-audit"
 SYMLINK_DIR="/usr/local/bin"

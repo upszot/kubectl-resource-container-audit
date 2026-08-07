@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 4.5
+- [X] FIX:
+  - **Comparación incorrecta de CPU (cores vs milicores)**: Se corrigió un bug en `colorizer.py` donde los valores de CPU expresados como cores enteros (ej. `request: 1`, `limit: 2`) no se convertían correctamente a milicores antes de compararlos contra el uso real (ej. `1882m`).
+    - Antes: `parse_resource_value()` solo multiplicaba por 1000 si el valor tenía punto decimal (`"1.5"` → 1500), pero un valor entero como `"1"` quedaba sin convertir (→ 1), haciendo que se comparara `1882m` de uso contra un límite de `2`, marcando el contenedor en rojo aunque el uso fuera normal.
+    - Ahora: se separó el parseo en dos métodos explícitos, `parse_cpu_value()` (siempre normaliza a milicores) y `parse_memory_value()` (normaliza a Mi), eliminando la ambigüedad y corrigiendo la comparación real.
 
 ## Version 4.4
 - [X] FIX:
