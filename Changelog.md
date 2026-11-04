@@ -1,6 +1,33 @@
 # Changelog
 
 
+## Version 4.5
+- [X] Added:
+  - **Análisis histórico con Prometheus**: nuevo modo `--history` que consulta el
+    Prometheus (kube-prometheus-stack) del mismo cluster y agrega las columnas
+    `CPU_AVG`, `CPU_P95`, `CPU_MAX`, `MEM_AVG`, `MEM_MAX` y `SAMPLES` a la vista `-o wide`.
+  - **Descubrimiento automático** del servicio de Prometheus y consulta a través del
+    proxy del API server de Kubernetes (sin port-forward ni credenciales extra).
+    Se puede forzar con `--prometheus-namespace`, `--prometheus-service` y
+    `--prometheus-timeout`.
+  - **Ventana y paso configurables** con `--history-window` (default `24h`) y
+    `--history-step` (automático, ~300 puntos por serie).
+  - **Colores históricos**: mismas reglas que el modo live, evaluando CPU con el
+    promedio y memoria con el pico (riesgo de OOMKill).
+  - Soporte de las nuevas columnas en `-o custom-columns` y en la exportación a
+    `.txt`, `.html` y `.pdf`.
+  - Nuevos módulos `krca/prometheus.py` y `krca/history.py` (agregados al instalador).
+- [X] FIX:
+  - `-o custom-columns` ahora colorea cada dato según su columna real (antes usaba
+    la posición del header personalizado).
+  - `requests`/`limits` ausentes se marcan en amarillo también cuando el uso no
+    está disponible (antes quedaban en blanco).
+  - La infrautilización severa (`< underuse-pct` del request) ahora se marca en azul;
+    antes la regla de púrpura la dejaba inalcanzable.
+  - Conversión correcta de CPU (`1` = `1000m`) y memoria (`Ki`, bytes, etc.) para
+    comparar uso contra requests/limits.
+  - `kubectl top` se ejecuta una sola vez por auditoría (antes una vez por pod).
+
 ## Version 4.4
 - [X] FIX:
   - Todas las mejoras son del instalador.

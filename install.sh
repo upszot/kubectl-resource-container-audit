@@ -22,6 +22,8 @@ FILES=(
     "krca/utils.py"
     "krca/models.py"
     "krca/kubectl.py"
+    "krca/prometheus.py"
+    "krca/history.py"
     "krca/colorizer.py"
     "krca/exporter.py"
     "krca/cli.py"

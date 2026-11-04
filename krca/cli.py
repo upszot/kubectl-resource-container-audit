@@ -3,6 +3,7 @@
 
 import argparse
 from . import __version__
+from .utils import parse_duration
 
 # Valores por defecto para los umbrales
 DEFAULT_WARNING_PCT = 60
@@ -10,11 +11,20 @@ DEFAULT_DANGER_PCT = 75
 DEFAULT_DIFF_PCT = 300
 DEFAULT_UNDERUSE_PCT = 5
 
+# Ventana histórica por defecto
+DEFAULT_HISTORY_WINDOW = "24h"
+DEFAULT_PROMETHEUS_TIMEOUT = 60
+
+# Columnas históricas (requieren Prometheus)
+HISTORICAL_COLUMNS = [
+    'CPU_AVG', 'CPU_P95', 'CPU_MAX', 'MEM_AVG', 'MEM_MAX', 'SAMPLES'
+]
+
 # Columnas disponibles para custom-columns
 AVAILABLE_COLUMNS = [
     'NAMESPACE', 'POD', 'CONTAINER', 'CPU', 'REQ_CPU', 'LIM_CPU',
     'MEMORY', 'REQ_MEM', 'LIM_MEM', 'STATUS', 'RESTARTS', 'NODE_IP', 'NODE'
-]
+] + HISTORICAL_COLUMNS
 
 def create_parser():
     """Crea y configura el parser de argumentos"""
@@ -112,7 +122,44 @@ def create_parser():
         default=DEFAULT_UNDERUSE_PCT,
         help=f"Porcentaje para detectar infrautilización (default: {DEFAULT_UNDERUSE_PCT}%%)"
     )
-    
+
+    # Análisis histórico con Prometheus
+    history_group = parser.add_argument_group('Análisis histórico (Prometheus)')
+    history_group.add_argument(
+        "--history",
+        action="store_true",
+        help="Agregar columnas históricas calculadas desde Prometheus (requiere -o wide)"
+    )
+    history_group.add_argument(
+        "--history-window",
+        default=DEFAULT_HISTORY_WINDOW,
+        metavar="DUR",
+        help=f"Ventana de análisis histórico (default: {DEFAULT_HISTORY_WINDOW}; ej: 90m, 12h, 7d)"
+    )
+    history_group.add_argument(
+        "--history-step",
+        default=None,
+        metavar="DUR",
+        help="Paso de muestreo histórico (default: automático según la ventana)"
+    )
+    history_group.add_argument(
+        "--prometheus-namespace",
+        metavar="NS",
+        help="Namespace del servicio de Prometheus (default: autodetección)"
+    )
+    history_group.add_argument(
+        "--prometheus-service",
+        metavar="NAME",
+        help="Nombre del servicio de Prometheus (default: autodetección; acepta ns/nombre)"
+    )
+    history_group.add_argument(
+        "--prometheus-timeout",
+        type=int,
+        default=DEFAULT_PROMETHEUS_TIMEOUT,
+        metavar="SEC",
+        help=f"Timeout de consulta a Prometheus en segundos (default: {DEFAULT_PROMETHEUS_TIMEOUT})"
+    )
+
     return parser
 
 def parse_custom_columns(spec):
@@ -154,7 +201,27 @@ def parse_args(argv=None):
     else:
         args.wide_output = False
         args.custom_columns = None
-    
+
+    # Validar duraciones del modo histórico
+    try:
+        parse_duration(args.history_window)
+    except ValueError as e:
+        parser.error(str(e))
+
+    if args.history_step:
+        try:
+            parse_duration(args.history_step)
+        except ValueError as e:
+            parser.error(str(e))
+
+    # Si se piden columnas históricas por custom-columns, activar el modo
+    if args.custom_columns and any(col in HISTORICAL_COLUMNS for col in args.custom_columns):
+        args.history = True
+
+    # El modo histórico solo tiene sentido con columnas extendidas
+    if args.history and not (args.wide_output or args.custom_columns):
+        parser.error("--history requiere -o wide (o -o custom-columns con columnas históricas)")
+
     return args
 
 def show_help():
@@ -186,6 +253,17 @@ Umbrales configurables:
   --danger-pct PCT      Porcentaje de danger (default: {DEFAULT_DANGER_PCT}%)
   --diff-pct PCT        Porcentaje de diferencia (default: {DEFAULT_DIFF_PCT}%)
   --underuse-pct PCT    Porcentaje de infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
+
+Análisis histórico (Prometheus):
+  --history             Agregar columnas históricas (requiere -o wide)
+  --history-window DUR  Ventana de análisis (default: {DEFAULT_HISTORY_WINDOW}; ej: 90m, 12h, 7d)
+  --history-step DUR    Paso de muestreo (default: automático)
+  --prometheus-namespace NS
+                        Namespace del servicio de Prometheus
+  --prometheus-service NAME
+                        Servicio de Prometheus (acepta ns/nombre)
+  --prometheus-timeout SEC
+                        Timeout de consulta (default: {DEFAULT_PROMETHEUS_TIMEOUT}s)
 
 Columnas disponibles para custom-columns:
   {', '.join(AVAILABLE_COLUMNS)}

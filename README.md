@@ -22,6 +22,7 @@
 - Configuraciones incorrectas o ausentes de `requests` o `limits`
 - Contenedores infrautilizados o sobreasignados
 - Estados de error o reinicios frecuentes
+- **Picos históricos de consumo** (Prometheus) para dimensionar `requests` y `limits`
 
 ---
 
@@ -40,6 +41,7 @@ curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-au
  - kubectl configurado con acceso a un cluster válido
  - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
  - [metrics-server](https://github.com/kubernetes-sigs/metrics-server) 
+ - *(Opcional)* Prometheus / kube-prometheus-stack en el mismo cluster para el análisis histórico
 
 ---
 
@@ -49,6 +51,120 @@ curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-au
 kubectl krca --help
 ```
 ![KRCA en acción](.img/krca--help.png)
+
+---
+
+## 📈 Análisis histórico con Prometheus
+
+Además del uso instantáneo (`kubectl top`), KRCA puede analizar el consumo
+histórico de los contenedores consultando el **Prometheus** (kube-prometheus-stack)
+que esté corriendo en el mismo cluster. Las columnas históricas se agregan a la
+vista `-o wide`.
+
+```sh
+# Últimas 24 horas (ventana por defecto)
+kubectl krca -n production -o wide --history
+
+# Últimos 7 días en todos los namespaces
+kubectl krca -A -o wide --history --history-window 7d
+
+# Exportar el análisis semanal a HTML
+kubectl krca -A -o wide --history --history-window 7d --output-file audit.html
+```
+
+Por defecto KRCA **descubre** el servicio de Prometheus y consulta su API a través
+del **proxy del API server de Kubernetes**, reutilizando el kubeconfig y los
+permisos del usuario actual. No necesita port-forward, ingress ni credenciales
+adicionales.
+
+Métricas utilizadas (cAdvisor):
+`container_cpu_usage_seconds_total` y `container_memory_working_set_bytes`.
+
+### Columnas históricas
+
+| Columna | Contenido |
+|---|---|
+| `CPU_AVG` | Promedio de CPU de la ventana (milicores) |
+| `CPU_P95` | Percentil 95 de CPU (milicores) |
+| `CPU_MAX` | Pico de CPU (milicores) |
+| `MEM_AVG` | Promedio de memoria de trabajo (MiB) |
+| `MEM_MAX` | Pico de memoria de trabajo (MiB) |
+| `SAMPLES` | Cantidad de muestras usadas en el cálculo |
+
+### Colores en el modo histórico
+
+Se aplican las mismas reglas que en la vista live, usando el **promedio** para
+CPU y el **pico** para memoria:
+
+| Color | Significado |
+|---|---|
+| 🔴 Rojo | Pico por encima del `limit` (riesgo de OOMKill) o uso por encima de `danger-pct` |
+| 🟡 Amarillo | Uso por encima de `warning-pct`; `requests`/`limits` no definidos |
+| 🟢 Verde | Uso normal entre `request` y `limit` |
+| 🔵 Azul | Infrautilización severa (`< underuse-pct` del request) |
+| 🟣 Púrpura | Uso por debajo del request o diferencia excesiva `limit/request > diff-pct` |
+
+### Opciones
+
+| Opción | Descripción | Default |
+|---|---|---|
+| `--history` | Activa las columnas históricas (requiere `-o wide`) | desactivado |
+| `--history-window DUR` | Ventana a analizar (`30m`, `12h`, `7d`, `2w`) | `24h` |
+| `--history-step DUR` | Paso de muestreo | automático (~300 puntos/serie) |
+| `--prometheus-namespace NS` | Namespace del servicio de Prometheus | autodetección |
+| `--prometheus-service NAME` | Servicio de Prometheus (acepta `ns/nombre`) | autodetección |
+| `--prometheus-timeout SEC` | Timeout de la consulta | `60` |
+
+También se pueden pedir columnas históricas con `-o custom-columns`, sin
+necesidad de `-o wide`:
+
+```sh
+kubectl krca -n production -o custom-columns=POD,CONTAINER,CPU_AVG,MEM_MAX \
+  --history --history-window 7d
+```
+
+### Permisos necesarios (RBAC)
+
+KRCA consulta Prometheus a través del subrecurso `services/proxy` del API server:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: krca-prometheus-proxy
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["services/proxy"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: krca-prometheus-proxy
+  namespace: monitoring
+subjects:
+  - kind: User
+    name: <su-usuario>
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: krca-prometheus-proxy
+  apiGroup: rbac.authorization.k8s.io
+```
+
+### Notas y limitaciones
+
+- La ventana no puede superar la retención de Prometheus (en kube-prometheus-stack
+  suele ser `10d`). Ajuste `--history-window` o la retención del stack.
+- `CPU_P95`, `CPU_MAX` y `MEM_MAX` se calculan sobre el paso de muestreo. Para
+  detectar picos muy cortos use un paso menor: `--history-step 1m`.
+- Sólo se muestran los pods que existen en el momento de la auditoría; las series
+  de pods eliminados se ignoran.
+- Si Prometheus no está disponible o faltan permisos, KRCA muestra una advertencia
+  por `stderr` y continúa con la vista live (columnas históricas en `-`).
+- Compatible con Prometheus, kube-prometheus-stack y Thanos Querier
+  (`--prometheus-service thanos-querier`).
 
 ---
 
@@ -82,6 +198,8 @@ kubectl-resource-container-audit/
 │   ├── core.py                 # Funcionalidades principales
 │   ├── colorizer.py            # Lógica de colores y estilos
 │   ├── kubectl.py              # Interacción con kubectl
+│   ├── prometheus.py           # Cliente de Prometheus vía proxy del API server
+│   ├── history.py              # Análisis histórico (avg/p95/max por contenedor)
 │   ├── exporter.py             # Exportación (HTML/PDF/otros formatos)
 │   ├── utils.py                # Funciones auxiliares
 │   └── models.py               # Modelos de datos (si usas clases)

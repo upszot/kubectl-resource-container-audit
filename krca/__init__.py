@@ -2,7 +2,7 @@
 # krca/__init__.py - Inicialización del paquete KRCA
 
 # Metadata del paquete
-__version__ = "4.4"
+__version__ = "4.5"
 __author__ = "upszot"
 __license__ = "GLP3.0"
 
@@ -11,6 +11,8 @@ from .cli import parse_args, show_help
 from .core import analyze_resources
 from .colorizer import ResourceColorizer
 from .kubectl import KubectlClient, KubectlError
+from .prometheus import PrometheusClient, PrometheusError
+from .history import HistoryAnalyzer
 from .exporter import Exporter
 from .utils import KRCAUtils
 from .models import (
@@ -37,6 +39,8 @@ __all__ = [
     # Clases de servicio
     'ResourceColorizer',
     'KubectlClient',
+    'PrometheusClient',
+    'HistoryAnalyzer',
     'Exporter',
     'KRCAUtils',
     
@@ -57,6 +61,7 @@ __all__ = [
     
     # Excepciones
     'KubectlError',
+    'PrometheusError',
     
     # Metadata
     '__version__',
