@@ -1,6 +1,5 @@
 # Changelog
 
-
 ## Version 6.0
 - [X] Added:
   - **Empaquetado para PyPI**: nuevo `pyproject.toml` con Hatchling. El paquete
@@ -87,8 +86,14 @@
     está disponible (antes quedaban en blanco).
   - La infrautilización severa (`< underuse-pct` del request) ahora se marca en azul;
     antes la regla de púrpura la dejaba inalcanzable.
-  - Conversión correcta de CPU (`1` = `1000m`) y memoria (`Ki`, bytes, etc.) para
-    comparar uso contra requests/limits.
+  - **Comparación incorrecta de CPU (cores vs milicores)**: se corrigió la
+    conversión de CPU para que los cores enteros se normalicen a milicores antes
+    de compararlos contra el uso real. Antes, `parse_resource_value()` sólo
+    multiplicaba por 1000 los valores con punto decimal (`"1.5"` → 1500) y dejaba
+    un entero como `"1"` en 1, por lo que `1882m` de uso contra un límite de `2`
+    se marcaba en rojo aunque fuera normal. Ahora el parseo separa CPU (siempre a
+    milicores) y memoria (a Mi); en v6.0 la lógica equivalente vive en
+    `KRCAUtils.parse_cpu_to_millicores()` y `KRCAUtils.parse_memory_to_mib()`.
   - `kubectl top` se ejecuta una sola vez por auditoría (antes una vez por pod).
 
 ## Version 4.4
