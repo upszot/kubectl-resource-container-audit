@@ -1,6 +1,44 @@
 # Changelog
 
 
+## Version 5.1
+- [X] Added:
+  - **Versión centralizada**: nueva fuente única de verdad en el archivo
+    [`VERSION`](./VERSION). El paquete Python (`krca.__version__`), el instalador,
+    la verificación posterior y `krca --version` leen ese valor, evitando
+    actualizar la versión en varios archivos.
+  - **Instalador 7.1**: reescritura completa del instalador (incluye las mejoras
+    7.0) con lectura de `VERSION`, copia del archivo a la instalación y
+    comparación de la versión esperada contra la reportada por el comando.
+  - **Instalación desde un solo archivo**: se descarga el archivo comprimido de
+    la rama/tag en lugar de pedir cada archivo por separado. Esto incluye
+    `krca/styles.css`, `krca/resize.css` y `krca/resize.js`, que el instalador
+    anterior no descargaba y eran necesarios para exportar HTML/PDF.
+  - **Entorno virtual aislado**: las dependencias Python se instalan en
+    `$INSTALL_DIR/venv` y ya no se modifican los paquetes globales del sistema.
+  - **Instalación local/offline** con `--source DIR` (desde un checkout).
+  - **Opciones de instalación**: `--prefix`, `--bin-dir`, `--branch`,
+    `--no-deps`, `--uninstall`, `--yes` y `--help`.
+  - **Verificación real** al finalizar: importa el paquete y ejecuta
+    `kubectl-krca --version`, comparando con la versión de `VERSION`.
+  - Chequeos de Python, `venv`, `curl`, `tar`, `kubectl` y `wkhtmltopdf`, con
+    mensajes claros cuando falta algo.
+  - Instalación **idempotente** y preparada en un directorio temporal, para no
+    romper una instalación existente si la descarga o las dependencias fallan.
+- [X] FIX:
+  - Corregida la versión reportada por el paquete: ahora `krca --version` muestra
+    `5.1`, consistente con la rama actual, en lugar de `4.5`.
+  - La rama por defecto del instalador ahora es `master` (antes apuntaba a
+    `v4.4`, por lo que se instalaba código desactualizado).
+  - `curl` ahora falla ante errores HTTP (`-f`) y reintenta la descarga.
+  - Se usa `python3 -m pip` en lugar de `pip`, evitando ambigüedades con Python 2.
+  - El wrapper resuelve symlinks, por lo que funciona con cualquier `--prefix`.
+  - Se elimina la necesidad de configurar `PYTHONPATH` global y se limpian los
+    restos de instalaciones anteriores (`/etc/profile.d/krca.sh` y líneas del
+    `.bashrc`).
+  - El desinstalador valida que los symlinks apunten a KRCA antes de borrarlos,
+    y ya no elimina archivos ajenos.
+
 ## Version 4.5
 - [X] Added:
   - **Análisis histórico con Prometheus**: nuevo modo `--history` que consulta el

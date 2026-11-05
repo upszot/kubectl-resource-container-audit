@@ -26,18 +26,68 @@
 
 ---
 
+## 🏷️ Versión
+
+La versión de KRCA se define en un único lugar: el archivo [`VERSION`](./VERSION).
+El paquete Python, el instalador y la salida de `krca --version` leen ese valor,
+por lo que no hace falta actualizarlo en varios archivos.
+
+---
+
 ## 📥 Instalación  
-Ahora puedes instalar `kubectl-resource-container-audit` fácilmente con:  
+
+Instalación rápida (requiere `sudo`):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/refs/heads/master/install.sh |sudo  /bin/bash
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh | sudo bash
+```
+
+El instalador:
+
+- Descarga el código de la rama indicada (por defecto `master`) en un solo archivo comprimido.
+- Instala las dependencias Python en un **venv aislado** dentro del directorio de instalación, sin modificar los paquetes del sistema.
+- Lee la versión desde `VERSION`, la copia junto a la instalación y verifica que el comando instalado reporte esa misma versión.
+- Verifica la instalación y deja disponibles los comandos `krca` y `kubectl-krca`.
+- Es idempotente: se puede volver a ejecutar para actualizar.
+
+### Opciones del instalador
+
+```bash
+# Instalar la rama actual (v5.1)
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v5.1/install.sh \
+  | sudo bash -s -- --branch v5.1
+
+# Instalar otra rama, tag o commit específico
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh \
+  | sudo bash -s -- --branch <rama-o-tag>
+
+# Instalar desde un checkout local (sin red)
+sudo ./install.sh --source .
+
+# Directorios personalizados
+sudo ./install.sh --prefix /opt/krca --bin-dir /usr/local/bin
+
+# Ver todas las opciones
+./install.sh --help
+```
+
+### Desinstalación
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/uninstall.sh | sudo bash -s -- --yes
+```
+
+O desde el repositorio:
+
+```bash
+sudo ./uninstall.sh --yes
 ```
 
 ---
 
 ✅ Requisitos
- - Python 3.12+ (con dependencias listadas en requirements.txt).
- - wkhtmltopdf
+ - Python 3.12+ (el instalador crea un venv e instala las dependencias de `requirements.txt`).
+ - wkhtmltopdf (opcional, sólo para exportar a PDF)
  - kubectl configurado con acceso a un cluster válido
  - Acceso a permisos para listar pods y contenedores (kubectl get pods -A -o json)
  - [metrics-server](https://github.com/kubernetes-sigs/metrics-server) 
@@ -192,8 +242,12 @@ roleRef:
 ```sh
 kubectl-resource-container-audit/
 │
+├── VERSION                     # Versión actual (fuente única de verdad)
+├── install.sh                  # Instalador
+├── uninstall.sh                # Desinstalador
+│
 ├── krca/                       # Paquete principal
-│   ├── __init__.py             # Para que Python lo reconozca como paquete
+│   ├── __init__.py             # Paquete y lectura de VERSION
 │   ├── cli.py                  # Lógica de línea de comandos (argparse)
 │   ├── core.py                 # Funcionalidades principales
 │   ├── colorizer.py            # Lógica de colores y estilos
@@ -224,7 +278,7 @@ Desarrollado por @upszot para entornos Kubernetes y OpenShift.
 
 ## 👥 Colaboradores
 - **@Miguel** - mi 2do tester :-D
-- 
+- [RockD](https://github.com/RockD)
 
 ---
 
