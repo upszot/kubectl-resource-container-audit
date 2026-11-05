@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KRCA Installer v7.0
+# KRCA Installer v7.1
 #
 # Instalación recomendada:
 #   curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh | sudo bash

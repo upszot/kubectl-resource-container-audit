@@ -6,6 +6,12 @@
 <h1 align="center">🔍 KRCA - Kubernetes Resource Container Audit</h1>
 
 <p align="center">
+  <a href="https://pypi.org/project/krca/"><img src="https://img.shields.io/pypi/v/krca.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/krca/"><img src="https://img.shields.io/pypi/pyversions/krca.svg" alt="Python versions"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg" alt="License"></a>
+</p>
+
+<p align="center">
   <strong>Monitor • Analyze • Optimize your Kubernetes resources</strong>
 </p>
 </div>
@@ -36,6 +42,27 @@ por lo que no hace falta actualizarlo en varios archivos.
 
 ## 📥 Instalación  
 
+### Opción 1: Homebrew (macOS / Linux)
+
+```bash
+brew install upszot/krca/krca
+```
+
+### Opción 2: PyPI (pip / pipx)
+
+```bash
+# Recomendado: entorno aislado
+pipx install krca
+
+# O dentro de un virtualenv
+python3 -m venv ~/.venvs/krca && source ~/.venvs/krca/bin/activate
+pip install krca
+```
+
+Ambos métodos instalan los comandos `krca` y `kubectl-krca`.
+
+### Opción 3: instalador con `sudo`
+
 Instalación rápida (requiere `sudo`):
 
 ```bash
@@ -53,9 +80,9 @@ El instalador:
 ### Opciones del instalador
 
 ```bash
-# Instalar la rama actual (v5.1)
-curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v5.1/install.sh \
-  | sudo bash -s -- --branch v5.1
+# Instalar la rama actual (v6.0)
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v6.0/install.sh \
+  | sudo bash -s -- --branch v6.0
 
 # Instalar otra rama, tag o commit específico
 curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh \
@@ -243,11 +270,13 @@ roleRef:
 kubectl-resource-container-audit/
 │
 ├── VERSION                     # Versión actual (fuente única de verdad)
+├── pyproject.toml              # Empaquetado para PyPI (Hatchling)
 ├── install.sh                  # Instalador
 ├── uninstall.sh                # Desinstalador
 │
 ├── krca/                       # Paquete principal
-│   ├── __init__.py             # Paquete y lectura de VERSION
+│   ├── __init__.py             # Paquete y resolución de versión
+│   ├── __main__.py             # Entry point de `krca` / `kubectl-krca`
 │   ├── cli.py                  # Lógica de línea de comandos (argparse)
 │   ├── core.py                 # Funcionalidades principales
 │   ├── colorizer.py            # Lógica de colores y estilos
@@ -259,8 +288,11 @@ kubectl-resource-container-audit/
 │   └── models.py               # Modelos de datos (si usas clases)
 │
 ├── scripts/                    # Scripts ejecutables
-│   └── krca                    # Punto de entrada (main)
+│   └── krca                    # Punto de entrada para desarrollo (delega en krca.__main__)
 │   └── krca-wrapper.sh         # Wrapper bash para instalación
+│
+├── packaging/                  # Archivos de distribución
+│   └── homebrew/               # Fórmula y recursos del tap de Homebrew
 │
 ├── output-test/                # Ejemplos de salida
 │   ├── test.html

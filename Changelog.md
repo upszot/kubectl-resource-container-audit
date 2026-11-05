@@ -1,6 +1,31 @@
 # Changelog
 
 
+## Version 6.0
+- [X] Added:
+  - **Empaquetado para PyPI**: nuevo `pyproject.toml` con Hatchling. El paquete
+    se publica como `krca` y se puede instalar con `pip install krca` o
+    `pipx install krca`.
+  - **Entry points estándar**: `krca` y `kubectl-krca` se generan
+    automáticamente al instalar el paquete. La lógica se movió de
+    `scripts/krca` a `krca/__main__.py`; el script del repositorio ahora sólo
+    delega en ella. También funciona `python -m krca`.
+  - **Distribución vía Homebrew**: fórmula para el tap `upszot/homebrew-krca`,
+    instalable con `brew install upszot/krca/krca`. Incluye la fórmula con sus
+    recursos ya generados y las instrucciones para publicar/actualizar el tap.
+    La fórmula fija `kubernetes` 36.x porque desde 37 incorpora `pydantic`
+    (compilación Rust/maturin) y complica el build desde sdist.
+  - **Workflow de release**: `.github/workflows/release.yml` construye `sdist`
+    y wheel, valida la versión y publica en PyPI con Trusted Publishing al
+    crear un tag `v*` (o manualmente).
+  - La versión del paquete instalado por pip/Homebrew se resuelve con
+    `importlib.metadata` cuando el archivo `VERSION` no está presente.
+- [X] FIX:
+  - `scripts/krca` ya no puede fallar con `UnboundLocalError` si `parse_args()`
+    lanza una excepción: `args` se inicializa antes del bloque `try`.
+  - La versión reportada por el paquete ahora es `6.0`, consistente con
+    [`VERSION`](./VERSION) y la rama `v6.0`.
+
 ## Version 5.1
 - [X] Added:
   - **Versión centralizada**: nueva fuente única de verdad en el archivo
