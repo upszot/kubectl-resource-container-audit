@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publicar en PyPI (si no, sólo construye y valida)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build y validación
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verificar versión (VERSION vs tag)
+        shell: bash
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$tag" ]; then
+              echo "::error::VERSION ($version) no coincide con el tag ($tag)"
+              exit 1
+            fi
+          fi
+
+      - name: Instalar herramientas
+        run: python -m pip install --upgrade build twine
+
+      - name: Construir sdist y wheel
+        run: python -m build
+
+      - name: Validar artefactos
+        run: python -m twine check dist/*
+
+      - name: Verificar que el wheel contiene los assets
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          wheel = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(wheel).namelist()
+          required = ["krca/styles.css", "krca/resize.css", "krca/resize.js"]
+          missing = [n for n in required if n not in names]
+          if missing:
+              raise SystemExit(f"Faltan archivos en el wheel: {missing}")
+          print(f"Wheel OK: {wheel}")
+          PY
+
+      - name: Instalar el wheel en un entorno limpio
+        shell: bash
+        run: |
+          python -m venv /tmp/krca-test
+          /tmp/krca-test/bin/pip install --upgrade pip
+          /tmp/krca-test/bin/pip install dist/*.whl
+          /tmp/krca-test/bin/krca --version
+          /tmp/krca-test/bin/kubectl-krca --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publicar en PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish)
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/krca
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true

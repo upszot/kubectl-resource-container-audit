@@ -1,10 +1,100 @@
 # Changelog
 
-## Version 4.5
+## Version 6.0
+- [X] Added:
+  - **Empaquetado para PyPI**: nuevo `pyproject.toml` con Hatchling. El paquete
+    se publica como `krca` y se puede instalar con `pip install krca` o
+    `pipx install krca`.
+  - **Entry points estándar**: `krca` y `kubectl-krca` se generan
+    automáticamente al instalar el paquete. La lógica se movió de
+    `scripts/krca` a `krca/__main__.py`; el script del repositorio ahora sólo
+    delega en ella. También funciona `python -m krca`.
+  - **Distribución vía Homebrew**: fórmula para el tap `upszot/homebrew-krca`,
+    instalable con `brew install upszot/krca/krca`. Incluye la fórmula con sus
+    recursos ya generados y las instrucciones para publicar/actualizar el tap.
+    La fórmula fija `kubernetes` 36.x porque desde 37 incorpora `pydantic`
+    (compilación Rust/maturin) y complica el build desde sdist.
+  - **Workflow de release**: `.github/workflows/release.yml` construye `sdist`
+    y wheel, valida la versión y publica en PyPI con Trusted Publishing al
+    crear un tag `v*` (o manualmente).
+  - La versión del paquete instalado por pip/Homebrew se resuelve con
+    `importlib.metadata` cuando el archivo `VERSION` no está presente.
 - [X] FIX:
-  - **Comparación incorrecta de CPU (cores vs milicores)**: Se corrigió un bug en `colorizer.py` donde los valores de CPU expresados como cores enteros (ej. `request: 1`, `limit: 2`) no se convertían correctamente a milicores antes de compararlos contra el uso real (ej. `1882m`).
-    - Antes: `parse_resource_value()` solo multiplicaba por 1000 si el valor tenía punto decimal (`"1.5"` → 1500), pero un valor entero como `"1"` quedaba sin convertir (→ 1), haciendo que se comparara `1882m` de uso contra un límite de `2`, marcando el contenedor en rojo aunque el uso fuera normal.
-    - Ahora: se separó el parseo en dos métodos explícitos, `parse_cpu_value()` (siempre normaliza a milicores) y `parse_memory_value()` (normaliza a Mi), eliminando la ambigüedad y corrigiendo la comparación real.
+  - `scripts/krca` ya no puede fallar con `UnboundLocalError` si `parse_args()`
+    lanza una excepción: `args` se inicializa antes del bloque `try`.
+  - La versión reportada por el paquete ahora es `6.0`, consistente con
+    [`VERSION`](./VERSION) y la rama `v6.0`.
+
+## Version 5.1
+- [X] Added:
+  - **Versión centralizada**: nueva fuente única de verdad en el archivo
+    [`VERSION`](./VERSION). El paquete Python (`krca.__version__`), el instalador,
+    la verificación posterior y `krca --version` leen ese valor, evitando
+    actualizar la versión en varios archivos.
+  - **Instalador 7.1**: reescritura completa del instalador (incluye las mejoras
+    7.0) con lectura de `VERSION`, copia del archivo a la instalación y
+    comparación de la versión esperada contra la reportada por el comando.
+  - **Instalación desde un solo archivo**: se descarga el archivo comprimido de
+    la rama/tag en lugar de pedir cada archivo por separado. Esto incluye
+    `krca/styles.css`, `krca/resize.css` y `krca/resize.js`, que el instalador
+    anterior no descargaba y eran necesarios para exportar HTML/PDF.
+  - **Entorno virtual aislado**: las dependencias Python se instalan en
+    `$INSTALL_DIR/venv` y ya no se modifican los paquetes globales del sistema.
+  - **Instalación local/offline** con `--source DIR` (desde un checkout).
+  - **Opciones de instalación**: `--prefix`, `--bin-dir`, `--branch`,
+    `--no-deps`, `--uninstall`, `--yes` y `--help`.
+  - **Verificación real** al finalizar: importa el paquete y ejecuta
+    `kubectl-krca --version`, comparando con la versión de `VERSION`.
+  - Chequeos de Python, `venv`, `curl`, `tar`, `kubectl` y `wkhtmltopdf`, con
+    mensajes claros cuando falta algo.
+  - Instalación **idempotente** y preparada en un directorio temporal, para no
+    romper una instalación existente si la descarga o las dependencias fallan.
+- [X] FIX:
+  - Corregida la versión reportada por el paquete: ahora `krca --version` muestra
+    `5.1`, consistente con la rama actual, en lugar de `4.5`.
+  - La rama por defecto del instalador ahora es `master` (antes apuntaba a
+    `v4.4`, por lo que se instalaba código desactualizado).
+  - `curl` ahora falla ante errores HTTP (`-f`) y reintenta la descarga.
+  - Se usa `python3 -m pip` en lugar de `pip`, evitando ambigüedades con Python 2.
+  - El wrapper resuelve symlinks, por lo que funciona con cualquier `--prefix`.
+  - Se elimina la necesidad de configurar `PYTHONPATH` global y se limpian los
+    restos de instalaciones anteriores (`/etc/profile.d/krca.sh` y líneas del
+    `.bashrc`).
+  - El desinstalador valida que los symlinks apunten a KRCA antes de borrarlos,
+    y ya no elimina archivos ajenos.
+
+## Version 4.5
+- [X] Added:
+  - **Análisis histórico con Prometheus**: nuevo modo `--history` que consulta el
+    Prometheus (kube-prometheus-stack) del mismo cluster y agrega las columnas
+    `CPU_AVG`, `CPU_P95`, `CPU_MAX`, `MEM_AVG`, `MEM_MAX` y `SAMPLES` a la vista `-o wide`.
+  - **Descubrimiento automático** del servicio de Prometheus y consulta a través del
+    proxy del API server de Kubernetes (sin port-forward ni credenciales extra).
+    Se puede forzar con `--prometheus-namespace`, `--prometheus-service` y
+    `--prometheus-timeout`.
+  - **Ventana y paso configurables** con `--history-window` (default `24h`) y
+    `--history-step` (automático, ~300 puntos por serie).
+  - **Colores históricos**: mismas reglas que el modo live, evaluando CPU con el
+    promedio y memoria con el pico (riesgo de OOMKill).
+  - Soporte de las nuevas columnas en `-o custom-columns` y en la exportación a
+    `.txt`, `.html` y `.pdf`.
+  - Nuevos módulos `krca/prometheus.py` y `krca/history.py` (agregados al instalador).
+- [X] FIX:
+  - `-o custom-columns` ahora colorea cada dato según su columna real (antes usaba
+    la posición del header personalizado).
+  - `requests`/`limits` ausentes se marcan en amarillo también cuando el uso no
+    está disponible (antes quedaban en blanco).
+  - La infrautilización severa (`< underuse-pct` del request) ahora se marca en azul;
+    antes la regla de púrpura la dejaba inalcanzable.
+  - **Comparación incorrecta de CPU (cores vs milicores)**: se corrigió la
+    conversión de CPU para que los cores enteros se normalicen a milicores antes
+    de compararlos contra el uso real. Antes, `parse_resource_value()` sólo
+    multiplicaba por 1000 los valores con punto decimal (`"1.5"` → 1500) y dejaba
+    un entero como `"1"` en 1, por lo que `1882m` de uso contra un límite de `2`
+    se marcaba en rojo aunque fuera normal. Ahora el parseo separa CPU (siempre a
+    milicores) y memoria (a Mi); en v6.0 la lógica equivalente vive en
+    `KRCAUtils.parse_cpu_to_millicores()` y `KRCAUtils.parse_memory_to_mib()`.
+  - `kubectl top` se ejecuta una sola vez por auditoría (antes una vez por pod).
 
 ## Version 4.4
 - [X] FIX:

@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "krca"
+dynamic = ["version"]
+description = "Audit CPU, memory, requests and limits of Kubernetes containers"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "upszot", url = "https://github.com/upszot" },
+]
+keywords = [
+    "kubernetes",
+    "kubectl",
+    "kubectl-plugin",
+    "containers",
+    "resources",
+    "prometheus",
+    "openshift",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "tabulate>=0.8.0",
+    "kubernetes>=24.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "twine>=5",
+]
+
+[project.scripts]
+krca = "krca.__main__:main"
+kubectl-krca = "krca.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/upszot/kubectl-resource-container-audit"
+Repository = "https://github.com/upszot/kubectl-resource-container-audit"
+Issues = "https://github.com/upszot/kubectl-resource-container-audit/issues"
+Changelog = "https://github.com/upszot/kubectl-resource-container-audit/blob/master/Changelog.md"
+
+[tool.hatch.version]
+source = "regex"
+path = "VERSION"
+pattern = "(?m)^(?P<version>\\S+)\\s*$"
+
+[tool.hatch.build.targets.wheel]
+packages = ["krca"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/krca",
+    "/scripts",
+    "/packaging",
+    "/VERSION",
+    "/LICENSE",
+    "/README.md",
+    "/Changelog.md",
+    "/requirements.txt",
+    "/install.sh",
+    "/uninstall.sh",
+]
+exclude = [
+    "/.git",
+    "/.private",
+    "/.img",
+    "/__pycache__",
+    "/output-test",
+]

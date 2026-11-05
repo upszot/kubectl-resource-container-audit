@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # krca/colorizer.py - Módulo para manejo de colores y estilos
 
+from .utils import KRCAUtils
+
 class ResourceColorizer:
     """Clase para aplicar colores a los recursos según su estado y uso"""
-    
+
     # Códigos de color ANSI como constantes de clase
     RESET = "\033[0m"
     RED = "\033[31m"
@@ -14,6 +16,9 @@ class ResourceColorizer:
     BOLD = "\033[1m"
     CYAN = "\033[36m"
     BLUE = "\033[34m"
+
+    # Columnas que usan la lógica de color histórica
+    HISTORICAL_COLUMNS = ('CPU_AVG', 'CPU_P95', 'CPU_MAX', 'MEM_AVG', 'MEM_MAX')
 
     @classmethod
     def red(cls, text: str) -> str:
@@ -50,134 +55,151 @@ class ResourceColorizer:
         """Aplica negrita al texto"""
         return f"{cls.BOLD}{text}{cls.RESET}"
 
-    # Métodos existentes para coloreado de recursos (se mantienen igual)
-    @staticmethod
-    def colorize_usage(cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem, 
-                      warning_pct, danger_pct, diff_pct, underuse_pct):
+    # ------------------------------------------------------------------
+    # Lógica compartida de colores (modo live y modo histórico)
+    # ------------------------------------------------------------------
+    @classmethod
+    def _color_resource(cls, usage, request, limit, warning_pct, danger_pct,
+                        diff_pct, underuse_pct, parser):
+        """
+        Calcula los colores de (uso, request, limit) aplicando las mismas
+        reglas para CPU y memoria. `parser` normaliza las unidades.
+        """
+        usage_num = parser(usage)
+        req_num = parser(request)
+        lim_num = parser(limit)
+
+        usage_color = cls.WHITE
+        req_color = cls.WHITE
+        lim_color = cls.WHITE
+
+        # Valores de configuración ausentes -> amarillo
+        if req_num is None:
+            req_color = cls.YELLOW
+        if lim_num is None:
+            lim_color = cls.YELLOW
+
+        if usage_num is not None:
+            if lim_num and usage_num > lim_num:
+                # Uso por encima del límite
+                usage_color = cls.RED
+                lim_color = cls.RED
+            elif req_num and lim_num and req_num <= usage_num <= lim_num:
+                # Uso normal entre request y limit
+                usage_color = cls.GREEN
+                req_color = cls.GREEN
+            elif lim_num and (usage_num / lim_num * 100) > danger_pct:
+                usage_color = cls.RED
+            elif lim_num and (usage_num / lim_num * 100) > warning_pct:
+                usage_color = cls.YELLOW
+            elif req_num and (usage_num / req_num * 100) < underuse_pct:
+                # Infrautilización severa (tiene prioridad sobre "bajo request")
+                req_color = cls.BLUE
+            elif req_num and usage_num < req_num:
+                # Uso por debajo del request
+                req_color = cls.PURPLE
+
+            # Gran diferencia entre request y limit
+            if req_num and lim_num and (lim_num / req_num * 100) > diff_pct:
+                lim_color = cls.PURPLE
+
+        return usage_color, req_color, lim_color
+
+    @classmethod
+    def _color_peak(cls, peak, request, limit, warning_pct, danger_pct,
+                    underuse_pct, parser):
+        """
+        Colores para valores pico (p95/máximo) del análisis histórico.
+        Un pico por encima del limit es siempre rojo.
+        """
+        value = parser(peak)
+        req_num = parser(request)
+        lim_num = parser(limit)
+
+        if value is None:
+            return cls.WHITE
+        if lim_num and value > lim_num:
+            return cls.RED
+        if lim_num and (value / lim_num * 100) > danger_pct:
+            return cls.RED
+        if lim_num and (value / lim_num * 100) > warning_pct:
+            return cls.YELLOW
+        if req_num and lim_num and req_num <= value <= lim_num:
+            return cls.GREEN
+        if req_num and (value / req_num * 100) < underuse_pct:
+            return cls.BLUE
+        return cls.WHITE
+
+    @classmethod
+    def colorize_usage(cls, cpu_usage, mem_usage, req_cpu, req_mem, lim_cpu, lim_mem,
+                       warning_pct, danger_pct, diff_pct, underuse_pct):
         """
         Determina los colores para los valores de uso de recursos
         Retorna tuplas de colores para: (cpu, req_cpu, lim_cpu, mem, req_mem, lim_mem)
         """
-        def get_cpu_colors():
-            """Lógica específica para colores de CPU"""
-            # Valores no definidos
-            if cpu_usage in ("-", "<none>") or req_cpu in ("-", "<none>") or lim_cpu in ("-", "<none>"):
-                return (ResourceColorizer.WHITE, ResourceColorizer.WHITE, ResourceColorizer.WHITE)
-            
-            cpu_num = ResourceColorizer.parse_cpu_value(cpu_usage)
-            req_cpu_num = ResourceColorizer.parse_cpu_value(req_cpu)
-            lim_cpu_num = ResourceColorizer.parse_cpu_value(lim_cpu)
-            
-            cpu_color = ResourceColorizer.WHITE
-            req_cpu_color = ResourceColorizer.WHITE
-            lim_cpu_color = ResourceColorizer.WHITE
-            
-            # Caso especial: Request no definido
-            if req_cpu in ("<none>", "-") or req_cpu_num is None:
-                req_cpu_color = ResourceColorizer.YELLOW
-            
-            # Caso especial: Limit no definido
-            if lim_cpu in ("<none>", "-") or lim_cpu_num is None:
-                lim_cpu_color = ResourceColorizer.YELLOW
-            
-            if cpu_num is not None:
-                # Uso > limit (rojo)
-                if lim_cpu_num and cpu_num > lim_cpu_num:
-                    lim_cpu_color = ResourceColorizer.RED
-                    cpu_color = ResourceColorizer.RED
-                
-                # Uso normal entre request y limit (verde)
-                elif req_cpu_num and lim_cpu_num and req_cpu_num <= cpu_num <= lim_cpu_num:
-                    cpu_color = ResourceColorizer.GREEN
-                    req_cpu_color = ResourceColorizer.GREEN
-                
-                # Uso > danger-pct (rojo)
-                elif lim_cpu_num and (cpu_num / lim_cpu_num * 100) > danger_pct:
-                    cpu_color = ResourceColorizer.RED
-                
-                # warning-pct < Uso < danger-pct (amarillo)
-                elif lim_cpu_num and (cpu_num / lim_cpu_num * 100) > warning_pct:
-                    cpu_color = ResourceColorizer.YELLOW
-                
-                # Uso por debajo del request (púrpura)
-                elif req_cpu_num and cpu_num < req_cpu_num:
-                    req_cpu_color = ResourceColorizer.PURPLE
-                
-                # Infrautilización severa (azul)
-                elif req_cpu_num and (cpu_num / req_cpu_num * 100) < underuse_pct:
-                    req_cpu_color = ResourceColorizer.BLUE
-                
-                # Gran diferencia entre request y limit (púrpura)
-                if (req_cpu_num and lim_cpu_num and 
-                    (lim_cpu_num / req_cpu_num * 100) > diff_pct):
-                    lim_cpu_color = ResourceColorizer.PURPLE
-            
-            return (cpu_color, req_cpu_color, lim_cpu_color)
-        
-        def get_mem_colors():
-            """Lógica específica para colores de memoria"""
-            # Valores no definidos
-            if mem_usage in ("-", "<none>") or req_mem in ("-", "<none>") or lim_mem in ("-", "<none>"):
-                return (ResourceColorizer.WHITE, ResourceColorizer.WHITE, ResourceColorizer.WHITE)
-            
-            mem_num = ResourceColorizer.parse_memory_value(mem_usage)
-            req_mem_num = ResourceColorizer.parse_memory_value(req_mem)
-            lim_mem_num = ResourceColorizer.parse_memory_value(lim_mem)
-            
-            mem_color = ResourceColorizer.WHITE
-            req_mem_color = ResourceColorizer.WHITE
-            lim_mem_color = ResourceColorizer.WHITE
-            
-            # Caso especial: Request no definido
-            if req_mem in ("<none>", "-") or req_mem_num is None:
-                req_mem_color = ResourceColorizer.YELLOW
-            
-            # Caso especial: Limit no definido
-            if lim_mem in ("<none>", "-") or lim_mem_num is None:
-                lim_mem_color = ResourceColorizer.YELLOW
-            
-            if mem_num is not None:
-                # Uso > limit (rojo)
-                if lim_mem_num and mem_num > lim_mem_num:
-                    lim_mem_color = ResourceColorizer.RED
-                    mem_color = ResourceColorizer.RED
-                
-                # Uso normal entre request y limit (verde)
-                elif req_mem_num and lim_mem_num and req_mem_num <= mem_num <= lim_mem_num:
-                    mem_color = ResourceColorizer.GREEN
-                    req_mem_color = ResourceColorizer.GREEN
-                
-                # Uso > danger-pct (rojo)
-                elif lim_mem_num and (mem_num / lim_mem_num * 100) > danger_pct:
-                    mem_color = ResourceColorizer.RED
-                
-                # warning-pct < Uso < danger-pct (amarillo)
-                elif lim_mem_num and (mem_num / lim_mem_num * 100) > warning_pct:
-                    mem_color = ResourceColorizer.YELLOW
-                
-                # Uso por debajo del request (púrpura)
-                elif req_mem_num and mem_num < req_mem_num:
-                    req_mem_color = ResourceColorizer.PURPLE
-                
-                # Infrautilización severa (azul)
-                elif req_mem_num and (mem_num / req_mem_num * 100) < underuse_pct:
-                    req_mem_color = ResourceColorizer.BLUE
-                
-                # Gran diferencia entre request y limit (púrpura)
-                if (req_mem_num and lim_mem_num and 
-                    (lim_mem_num / req_mem_num * 100) > diff_pct):
-                    lim_mem_color = ResourceColorizer.PURPLE
-            
-            return (mem_color, req_mem_color, lim_mem_color)
-        
-        # Obtener colores para CPU y memoria
-        cpu_colors = get_cpu_colors()
-        mem_colors = get_mem_colors()
-        
+        cpu_colors = cls._color_resource(
+            cpu_usage, req_cpu, lim_cpu,
+            warning_pct, danger_pct, diff_pct, underuse_pct,
+            KRCAUtils.parse_cpu_to_millicores
+        )
+        mem_colors = cls._color_resource(
+            mem_usage, req_mem, lim_mem,
+            warning_pct, danger_pct, diff_pct, underuse_pct,
+            KRCAUtils.parse_memory_to_mib
+        )
+
         return (
             cpu_colors[0], cpu_colors[1], cpu_colors[2],  # CPU, REQ_CPU, LIM_CPU
             mem_colors[0], mem_colors[1], mem_colors[2]   # MEM, REQ_MEM, LIM_MEM
         )
+
+    @classmethod
+    def colorize_historical(cls, cpu_avg, cpu_p95, cpu_max, mem_avg, mem_max,
+                            req_cpu, req_mem, lim_cpu, lim_mem,
+                            warning_pct, danger_pct, diff_pct, underuse_pct):
+        """
+        Determina los colores para las columnas históricas.
+
+        - CPU se evalúa con el promedio (uso típico).
+        - Memoria se evalúa con el promedio en MEM_AVG y con el pico en MEM_MAX,
+          que es el valor que anticipa un OOMKill.
+
+        Retorna un diccionario columna -> código ANSI.
+        """
+        cpu_avg_color, req_cpu_color, lim_cpu_color = cls._color_resource(
+            cpu_avg, req_cpu, lim_cpu,
+            warning_pct, danger_pct, diff_pct, underuse_pct,
+            KRCAUtils.parse_cpu_to_millicores
+        )
+        mem_avg_color, req_mem_color, lim_mem_color = cls._color_resource(
+            mem_avg, req_mem, lim_mem,
+            warning_pct, danger_pct, diff_pct, underuse_pct,
+            KRCAUtils.parse_memory_to_mib
+        )
+
+        return {
+            'CPU_AVG': cpu_avg_color,
+            'CPU_P95': cls._color_peak(
+                cpu_p95, req_cpu, lim_cpu,
+                warning_pct, danger_pct, underuse_pct,
+                KRCAUtils.parse_cpu_to_millicores
+            ),
+            'CPU_MAX': cls._color_peak(
+                cpu_max, req_cpu, lim_cpu,
+                warning_pct, danger_pct, underuse_pct,
+                KRCAUtils.parse_cpu_to_millicores
+            ),
+            'MEM_AVG': mem_avg_color,
+            'MEM_MAX': cls._color_peak(
+                mem_max, req_mem, lim_mem,
+                warning_pct, danger_pct, underuse_pct,
+                KRCAUtils.parse_memory_to_mib
+            ),
+            'REQ_CPU': req_cpu_color,
+            'LIM_CPU': lim_cpu_color,
+            'REQ_MEM': req_mem_color,
+            'LIM_MEM': lim_mem_color,
+        }
 
     @staticmethod
     def colorize_status(status, restarts):
@@ -187,7 +209,7 @@ class ResourceColorizer:
         """
         status_color = ResourceColorizer.WHITE
         restarts_color = ResourceColorizer.WHITE
-        
+
         if "Running" in status:
             status_color = ResourceColorizer.GREEN
         elif "Terminated: Completed" in status:
@@ -198,10 +220,10 @@ class ResourceColorizer:
             status_color = ResourceColorizer.BLUE
         else:
             status_color = ResourceColorizer.BLUE
-        
+
         if restarts > 0:
             restarts_color = ResourceColorizer.YELLOW if restarts < 5 else ResourceColorizer.RED
-        
+
         return status_color, restarts_color
 
     @staticmethod
@@ -225,58 +247,13 @@ class ResourceColorizer:
         return f"{ResourceColorizer.WHITE}{name}{ResourceColorizer.RESET}"
 
     @staticmethod
-    def parse_cpu_value(value):
-        """
-        Convierte valores de CPU a milicores numéricos.
-        Ejemplos: "500m" -> 500.0, "1" -> 1000.0, "0.5" -> 500.0, "2" -> 2000.0
-        Retorna None para valores inválidos
-        """
-        if value in ("<none>", "-", None, ""):
-            return None
-
-        try:
-            value = value.strip()
-            if value.endswith('m'):
-                return float(value[:-1])
-            else:
-                # Sin sufijo 'm' => está expresado en cores completos
-                # (sea entero "1" o decimal "0.5"), siempre se convierte a milicores
-                return float(value) * 1000
-        except (ValueError, AttributeError):
-            return None
-
-    @staticmethod
-    def parse_memory_value(value):
-        """
-        Convierte valores de memoria a mebibytes (Mi) numéricos.
-        Ejemplos: "512Mi" -> 512.0, "1Gi" -> 1024.0, "1024Ki" -> 1.0
-        Retorna None para valores inválidos
-        """
-        if value in ("<none>", "-", None, ""):
-            return None
-
-        try:
-            value = value.strip()
-            if value.endswith('Ki'):
-                return float(value[:-2]) / 1024
-            elif value.endswith('Mi'):
-                return float(value[:-2])
-            elif value.endswith('Gi'):
-                return float(value[:-2]) * 1024
-            elif value.endswith('Ti'):
-                return float(value[:-2]) * 1024 * 1024
-            else:
-                # Valor sin unidad: se asume ya normalizado a Mi
-                return float(value)
-        except (ValueError, AttributeError):
-            return None
-
-    @staticmethod
     def parse_resource_value(value):
         """
-        DEPRECATED: se mantiene solo por compatibilidad hacia atrás.
-        Usar parse_cpu_value() o parse_memory_value() según corresponda,
-        ya que un mismo número significa cosas distintas en CPU y en memoria.
+        Convierte valores de recursos a milicores/mebibytes numéricos
+        Retorna None para valores inválidos
+
+        Se mantiene por compatibilidad. Para comparaciones exactas use
+        KRCAUtils.parse_cpu_to_millicores / KRCAUtils.parse_memory_to_mib.
         """
         if value == "<none>" or value == "-":
             return None
