@@ -74,15 +74,16 @@ El instalador:
 - Descarga el código de la rama indicada (por defecto `master`) en un solo archivo comprimido.
 - Instala las dependencias Python en un **venv aislado** dentro del directorio de instalación, sin modificar los paquetes del sistema.
 - Lee la versión desde `VERSION`, la copia junto a la instalación y verifica que el comando instalado reporte esa misma versión.
+- Elimina paquetes `krca` residuales del venv y detecta otros `kubectl-krca` con prioridad en el `PATH`.
 - Verifica la instalación y deja disponibles los comandos `krca` y `kubectl-krca`.
 - Es idempotente: se puede volver a ejecutar para actualizar.
 
 ### Opciones del instalador
 
 ```bash
-# Instalar la rama actual (v6.0)
-curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v6.0/install.sh \
-  | sudo bash -s -- --branch v6.0
+# Instalar la rama actual (v6.1.2)
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v6.1.2/install.sh \
+  | sudo bash -s -- --branch v6.1.2
 
 # Instalar otra rama, tag o commit específico
 curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh \
@@ -94,8 +95,23 @@ sudo ./install.sh --source .
 # Directorios personalizados
 sudo ./install.sh --prefix /opt/krca --bin-dir /usr/local/bin
 
+# Diagnosticar una instalación existente (versión, binario, PATH)
+./install.sh --doctor
+
 # Ver todas las opciones
 ./install.sh --help
+```
+
+### Diagnóstico de versión
+
+Si `kubectl krca --version` no coincide con la versión instalada, ejecutá
+`./install.sh --doctor`: compara el `VERSION` instalado, el paquete que importa
+Python, el binario de la instalación y el que realmente resuelve `PATH`, y
+señala si otro `kubectl-krca` (pipx, Homebrew, instalación anterior) tiene
+prioridad.
+
+```bash
+./install.sh --doctor --prefix /usr/local/share/kubectl-resource-container-audit
 ```
 
 ### Desinstalación
@@ -134,16 +150,22 @@ kubectl krca --help
 ## 📈 Análisis histórico con Prometheus
 
 Además del uso instantáneo (`kubectl top`), KRCA puede analizar el consumo
-histórico de los contenedores consultando el **Prometheus** (kube-prometheus-stack)
-que esté corriendo en el mismo cluster. Las columnas históricas se agregan a la
-vista `-o wide`.
+histórico de los contenedores consultando **Prometheus** (kube-prometheus-stack)
+que esté corriendo en el mismo cluster.
+
+Con `--history` las columnas históricas se agregan a la tabla base;
+con `-o wide --history` se muestra además `STATUS`, `RESTARTS`, `SAMPLES`,
+`NODE_IP` y `NODE`.
 
 ```sh
-# Últimas 24 horas (ventana por defecto)
+# Histórico sobre la tabla base (CPU/MEM + promedios y picos)
+kubectl krca -n production --history
+
+# Histórico con todas las columnas (incluye STATUS, RESTARTS, SAMPLES y NODE)
 kubectl krca -n production -o wide --history
 
 # Últimos 7 días en todos los namespaces
-kubectl krca -A -o wide --history --history-window 7d
+kubectl krca -A --history --history-window 7d
 
 # Exportar el análisis semanal a HTML
 kubectl krca -A -o wide --history --history-window 7d --output-file audit.html
@@ -166,7 +188,7 @@ Métricas utilizadas (cAdvisor):
 | `CPU_MAX` | Pico de CPU (milicores) |
 | `MEM_AVG` | Promedio de memoria de trabajo (MiB) |
 | `MEM_MAX` | Pico de memoria de trabajo (MiB) |
-| `SAMPLES` | Cantidad de muestras usadas en el cálculo |
+| `SAMPLES` | Cantidad de muestras usadas en el cálculo (sólo con `-o wide`) |
 
 ### Colores en el modo histórico
 
@@ -185,9 +207,9 @@ CPU y el **pico** para memoria:
 
 | Opción | Descripción | Default |
 |---|---|---|
-| `--history` | Activa las columnas históricas (requiere `-o wide`) | desactivado |
-| `--history-window DUR` | Ventana a analizar (`30m`, `12h`, `7d`, `2w`) | `24h` |
-| `--history-step DUR` | Paso de muestreo | automático (~300 puntos/serie) |
+| `--history` | Agrega las columnas históricas a la tabla base | desactivado |
+| `--history-window DUR` | Ventana a analizar (`30m`, `12h`, `7d`, `2w`) | `7d` |
+| `--history-step DUR` | Paso de muestreo | `5m` |
 | `--prometheus-namespace NS` | Namespace del servicio de Prometheus | autodetección |
 | `--prometheus-service NAME` | Servicio de Prometheus (acepta `ns/nombre`) | autodetección |
 | `--prometheus-timeout SEC` | Timeout de la consulta | `60` |

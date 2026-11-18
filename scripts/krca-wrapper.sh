@@ -22,7 +22,13 @@ if [ -x "$INSTALL_DIR/venv/bin/python3" ]; then
 else
     # Modo sin venv (--no-deps) o instalación antigua.
     PYTHON="${KRCA_PYTHON:-python3}"
-    export PYTHONPATH="${INSTALL_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 fi
+
+# El código instalado debe tener prioridad absoluta sobre cualquier copia de
+# krca que pudiera existir en el site-packages del venv, del usuario o de
+# pipx/Homebrew. Sin esto, una instalación vieja puede seguir reportando su
+# propia versión aunque el instalador haya actualizado los archivos.
+export PYTHONPATH="${INSTALL_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONNOUSERSITE=1
 
 exec "$PYTHON" "$INSTALL_DIR/scripts/krca" "$@"

@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 # krca/__init__.py - Inicialización del paquete KRCA
 
+import os
 from pathlib import Path
 
 
 def _read_version_file():
-    """Lee la versión desde el archivo VERSION del proyecto, si existe.
+    """Lee la versión desde el archivo VERSION de la instalación.
 
-    Se buscan dos ubicaciones para cubrir tanto la ejecución desde el
-    repositorio como la instalación realizada por install.sh:
-      - <raíz del proyecto>/VERSION
-      - <paquete krca>/VERSION
+    Orden de búsqueda:
+      1. Archivo indicado en la variable de entorno KRCA_VERSION_FILE.
+      2. <raíz del proyecto>/VERSION (checkout o install.sh).
+      3. <paquete krca>/VERSION (instalaciones que copian el archivo dentro).
 
     Devuelve None si no encuentra el archivo (por ejemplo en un wheel).
     """
-    candidates = (
-        Path(__file__).resolve().parent.parent / "VERSION",
-        Path(__file__).resolve().parent / "VERSION",
-    )
+    package_dir = Path(__file__).resolve().parent
+
+    candidates = []
+    override = os.environ.get("KRCA_VERSION_FILE")
+    if override:
+        candidates.append(Path(override).expanduser())
+    candidates.append(package_dir.parent / "VERSION")
+    candidates.append(package_dir / "VERSION")
 
     for candidate in candidates:
         try:
@@ -30,17 +35,28 @@ def _read_version_file():
     return None
 
 
+def _is_installed_package():
+    """True si el paquete se está ejecutando desde site-packages/dist-packages."""
+    package_path = str(Path(__file__).resolve())
+    return "site-packages" in package_path or "dist-packages" in package_path
+
+
 def _read_version():
     """Resuelve la versión del paquete.
 
     Orden de preferencia:
       1. Archivo VERSION (checkout del repo o instalación con install.sh).
-      2. Metadatos del paquete instalado (wheel/sdist vía pip, pipx o Homebrew).
+      2. Metadatos del paquete instalado, sólo si el código se carga desde
+         site-packages/dist-packages (wheel, pipx, Homebrew). Así una metadata
+         vieja no se mezcla con el código de una instalación local.
       3. "unknown".
     """
     version = _read_version_file()
     if version:
         return version
+
+    if not _is_installed_package():
+        return "unknown"
 
     try:
         from importlib.metadata import PackageNotFoundError, version as dist_version

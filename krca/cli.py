@@ -12,7 +12,7 @@ DEFAULT_DIFF_PCT = 300
 DEFAULT_UNDERUSE_PCT = 5
 
 # Ventana histórica por defecto
-DEFAULT_HISTORY_WINDOW = "24h"
+# Versión por defecto usada en --history-window: 7d (antes 24h)
 DEFAULT_PROMETHEUS_TIMEOUT = 60
 
 # Columnas históricas (requieren Prometheus)
@@ -32,6 +32,7 @@ def create_parser():
         description=f"Kubernetes Resource Container Audit (KRCA) v{__version__}",
         add_help=False
     )
+    parser.set_defaults(wide_output=False)
     
     # Grupo exclusivo para namespaces
     namespace_group = parser.add_mutually_exclusive_group()
@@ -128,19 +129,19 @@ def create_parser():
     history_group.add_argument(
         "--history",
         action="store_true",
-        help="Agregar columnas históricas calculadas desde Prometheus (requiere -o wide)"
+        help="Agregar columnas históricas calculadas desde Prometheus (con -o wide agrega además STATUS/SAMPLES/NODE)"
     )
     history_group.add_argument(
         "--history-window",
-        default=DEFAULT_HISTORY_WINDOW,
+        default="7d",
         metavar="DUR",
-        help=f"Ventana de análisis histórico (default: {DEFAULT_HISTORY_WINDOW}; ej: 90m, 12h, 7d)"
+        help=f"Ventana de análisis histórico (default: 7d; ej: 90m, 12h)"
     )
     history_group.add_argument(
         "--history-step",
-        default=None,
+        default="5m",
         metavar="DUR",
-        help="Paso de muestreo histórico (default: automático según la ventana)"
+        help="Paso de muestreo histórico (default: 5m; ej: 90m, 12h)"
     )
     history_group.add_argument(
         "--prometheus-namespace",
@@ -218,10 +219,6 @@ def parse_args(argv=None):
     if args.custom_columns and any(col in HISTORICAL_COLUMNS for col in args.custom_columns):
         args.history = True
 
-    # El modo histórico solo tiene sentido con columnas extendidas
-    if args.history and not (args.wide_output or args.custom_columns):
-        parser.error("--history requiere -o wide (o -o custom-columns con columnas históricas)")
-
     return args
 
 def show_help():
@@ -255,9 +252,9 @@ Umbrales configurables:
   --underuse-pct PCT    Porcentaje de infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
 
 Análisis histórico (Prometheus):
-  --history             Agregar columnas históricas (requiere -o wide)
-  --history-window DUR  Ventana de análisis (default: {DEFAULT_HISTORY_WINDOW}; ej: 90m, 12h, 7d)
-  --history-step DUR    Paso de muestreo (default: automático)
+  --history             Agregar columnas históricas (con -o wide: STATUS, SAMPLES, NODE)
+  --history-window DUR  Ventana de análisis (default: 7d; ej: 90m, 12h, 7d)
+  --history-step DUR    Paso de muestreo (default: 5m)
   --prometheus-namespace NS
                         Namespace del servicio de Prometheus
   --prometheus-service NAME
