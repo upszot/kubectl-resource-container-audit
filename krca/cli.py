@@ -32,6 +32,7 @@ def create_parser():
         description=f"Kubernetes Resource Container Audit (KRCA) v{__version__}",
         add_help=False
     )
+    parser.set_defaults(wide_output=False)
     
     # Grupo exclusivo para namespaces
     namespace_group = parser.add_mutually_exclusive_group()
@@ -218,9 +219,9 @@ def parse_args(argv=None):
     if args.custom_columns and any(col in HISTORICAL_COLUMNS for col in args.custom_columns):
         args.history = True
 
-    # El modo histórico solo tiene sentido con columnas extendidas
-    if args.history and not (args.wide_output or args.custom_columns):
-        parser.error("--history requiere -o wide (o -o custom-columns con columnas históricas)")
+    # El modo histórico automáticamente usa formato wide si no se especifica otro
+    if args.history and not args.wide_output and not args.custom_columns:
+        args.wide_output = True
 
     return args
 
