@@ -150,16 +150,22 @@ kubectl krca --help
 ## 📈 Análisis histórico con Prometheus
 
 Además del uso instantáneo (`kubectl top`), KRCA puede analizar el consumo
-histórico de los contenedores consultando el **Prometheus** (kube-prometheus-stack)
-que esté corriendo en el mismo cluster. Las columnas históricas se agregan a la
-vista `-o wide`.
+histórico de los contenedores consultando **Prometheus** (kube-prometheus-stack)
+que esté corriendo en el mismo cluster.
+
+Con `--history` las columnas históricas se agregan a la tabla base;
+con `-o wide --history` se muestra además `STATUS`, `RESTARTS`, `SAMPLES`,
+`NODE_IP` y `NODE`.
 
 ```sh
-# Últimas 24 horas (ventana por defecto)
+# Histórico sobre la tabla base (CPU/MEM + promedios y picos)
+kubectl krca -n production --history
+
+# Histórico con todas las columnas (incluye STATUS, RESTARTS, SAMPLES y NODE)
 kubectl krca -n production -o wide --history
 
 # Últimos 7 días en todos los namespaces
-kubectl krca -A -o wide --history --history-window 7d
+kubectl krca -A --history --history-window 7d
 
 # Exportar el análisis semanal a HTML
 kubectl krca -A -o wide --history --history-window 7d --output-file audit.html
@@ -182,7 +188,7 @@ Métricas utilizadas (cAdvisor):
 | `CPU_MAX` | Pico de CPU (milicores) |
 | `MEM_AVG` | Promedio de memoria de trabajo (MiB) |
 | `MEM_MAX` | Pico de memoria de trabajo (MiB) |
-| `SAMPLES` | Cantidad de muestras usadas en el cálculo |
+| `SAMPLES` | Cantidad de muestras usadas en el cálculo (sólo con `-o wide`) |
 
 ### Colores en el modo histórico
 
@@ -201,9 +207,9 @@ CPU y el **pico** para memoria:
 
 | Opción | Descripción | Default |
 |---|---|---|
-| `--history` | Activa las columnas históricas (requiere `-o wide`) | desactivado |
-| `--history-window DUR` | Ventana a analizar (`30m`, `12h`, `7d`, `2w`) | `24h` |
-| `--history-step DUR` | Paso de muestreo | automático (~300 puntos/serie) |
+| `--history` | Agrega las columnas históricas a la tabla base | desactivado |
+| `--history-window DUR` | Ventana a analizar (`30m`, `12h`, `7d`, `2w`) | `7d` |
+| `--history-step DUR` | Paso de muestreo | `5m` |
 | `--prometheus-namespace NS` | Namespace del servicio de Prometheus | autodetección |
 | `--prometheus-service NAME` | Servicio de Prometheus (acepta `ns/nombre`) | autodetección |
 | `--prometheus-timeout SEC` | Timeout de la consulta | `60` |

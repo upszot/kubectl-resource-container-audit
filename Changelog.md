@@ -1,5 +1,18 @@
 # Changelog
 
+## Version 6.1.3
+- [X] Changed:
+  - `--history` ya no activa `-o wide`: agrega `CPU_AVG`, `CPU_P95`, `CPU_MAX`,
+    `MEM_AVG` y `MEM_MAX` a la tabla base.
+  - Con `-o wide --history` se muestran todas las columnas en este orden:
+    `NAMESPACE`, `POD`, `CONTAINER`, `CPU`, `REQ_CPU`, `LIM_CPU`, `MEMORY`,
+    `REQ_MEM`, `LIM_MEM`, `STATUS`, `RESTARTS`, `CPU_AVG`, `CPU_P95`,
+    `CPU_MAX`, `MEM_AVG`, `MEM_MAX`, `SAMPLES`, `NODE_IP`, `NODE`.
+  - `SAMPLES` se muestra sólo en la vista `-o wide`.
+- [X] FIX:
+  - Eliminada la duplicación de `RESTARTS` y unificado el orden de
+    `NODE_IP`/`NODE` al combinar `-o wide` con `--history`.
+
 ## Version 6.1.2
 - [X] FIX:
   - **Versión mostrada por `kubectl krca`**: el wrapper ahora antepone

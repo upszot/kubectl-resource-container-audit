@@ -28,8 +28,6 @@ class KRCAnalyzer:
     ]
 
     # Índices de columnas live/históricas dentro de COLUMN_ORDER
-    HISTORY_START_INDEX = 13
-
     LIVE_RESOURCE_HEADERS = ('CPU', 'REQ_CPU', 'LIM_CPU', 'MEMORY', 'REQ_MEM', 'LIM_MEM')
 
     def __init__(self, args):
@@ -38,13 +36,10 @@ class KRCAnalyzer:
         self.wide_output = bool(getattr(args, 'wide_output', False))
         self.custom_columns = getattr(args, 'custom_columns', None)
         self.history_requested = bool(getattr(args, 'history', False))
-        # El histórico solo se calcula cuando sus columnas se van a mostrar
-        self.include_history = self.history_requested and (
-            self.wide_output or bool(self.custom_columns)
-        )
+        # El histórico se calcula siempre que se pida --history. Con
+        # custom-columns, sólo si se pidió alguna columna histórica.
+        self.include_history = self.history_requested
         self.headers = self._determine_headers()
-        # Con custom-columns, evitar consultar Prometheus si no se pidió
-        # ninguna columna histórica.
         if self.custom_columns:
             self.include_history = self.history_requested and any(
                 header in ResourceColorizer.HISTORICAL_COLUMNS
@@ -53,20 +48,31 @@ class KRCAnalyzer:
 
     def _determine_headers(self) -> List[str]:
         """Define las columnas a mostrar basadas en los argumentos"""
-        # Columnas básicas por defecto
-        base_headers = self.COLUMN_ORDER[:9]
-
-        # Solo agregar columnas adicionales si se usa -o wide
-        if self.wide_output:
-            base_headers.extend(self.COLUMN_ORDER[9:13])
-            if self.include_history:
-                base_headers.extend(self.COLUMN_ORDER[self.HISTORY_START_INDEX:])
-
-        # Permitir columnas personalizadas si se especifican
         if self.custom_columns:
             return self.custom_columns
 
-        return base_headers
+        # Columnas básicas por defecto
+        base_headers = self.COLUMN_ORDER[:9]
+
+        # Sin histórico: comportamiento clásico
+        if not self.history_requested:
+            if self.wide_output:
+                return self.COLUMN_ORDER[:13]
+            return base_headers
+
+        # Con histórico: el bloque CPU/MEM se agrega a la tabla base.
+        historical_headers = ["CPU_AVG", "CPU_P95", "CPU_MAX", "MEM_AVG", "MEM_MAX"]
+
+        if not self.wide_output:
+            return base_headers + historical_headers
+
+        # -o wide + --history: todas las columnas, con NODE al final.
+        return (
+            base_headers
+            + ["STATUS", "RESTARTS"]
+            + historical_headers
+            + ["SAMPLES", "NODE_IP", "NODE"]
+        )
 
     def _get_column_index(self, column_name: str) -> int:
         """Obtiene el índice de una columna por su nombre"""
@@ -257,14 +263,6 @@ class KRCAnalyzer:
     def analyze(self) -> int:
         """Ejecuta el análisis completo y muestra los resultados"""
         try:
-            if self.history_requested and not (self.wide_output or self.custom_columns):
-                error_msg = (
-                    f"{ResourceColorizer.RED}Error:{ResourceColorizer.RESET} "
-                    "--history requiere -o wide (o -o custom-columns con columnas históricas)."
-                )
-                print(error_msg)
-                return 1
-
             pods = KubectlClient.get_pods(self.args.namespace, self.args.all_namespaces)
             metrics = KubectlClient.get_metrics(self.args.namespace, self.args.all_namespaces)
 

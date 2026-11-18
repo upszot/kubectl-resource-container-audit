@@ -129,7 +129,7 @@ def create_parser():
     history_group.add_argument(
         "--history",
         action="store_true",
-        help="Agregar columnas históricas calculadas desde Prometheus (requiere -o wide)"
+        help="Agregar columnas históricas calculadas desde Prometheus (con -o wide agrega además STATUS/SAMPLES/NODE)"
     )
     history_group.add_argument(
         "--history-window",
@@ -219,10 +219,6 @@ def parse_args(argv=None):
     if args.custom_columns and any(col in HISTORICAL_COLUMNS for col in args.custom_columns):
         args.history = True
 
-    # El modo histórico automáticamente usa formato wide si no se especifica otro
-    if args.history and not args.wide_output and not args.custom_columns:
-        args.wide_output = True
-
     return args
 
 def show_help():
@@ -256,7 +252,7 @@ Umbrales configurables:
   --underuse-pct PCT    Porcentaje de infrautilización (default: {DEFAULT_UNDERUSE_PCT}%)
 
 Análisis histórico (Prometheus):
-  --history             Agregar columnas históricas (requiere -o wide)
+  --history             Agregar columnas históricas (con -o wide: STATUS, SAMPLES, NODE)
   --history-window DUR  Ventana de análisis (default: 7d; ej: 90m, 12h, 7d)
   --history-step DUR    Paso de muestreo (default: 5m)
   --prometheus-namespace NS
