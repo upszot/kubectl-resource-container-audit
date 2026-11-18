@@ -8,14 +8,14 @@
 import sys
 from pathlib import Path
 
-# Asegurar que el paquete krca es importable desde el checkout.
-try:
-    from krca.__main__ import main
-except ImportError:
-    parent_dir = str(Path(__file__).parent.parent.resolve())
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-    from krca.__main__ import main
+# Prioridad absoluta al paquete que está junto a este script, tanto en un
+# checkout como en una instalación (evita mezclar con una copia en
+# site-packages).
+PACKAGE_ROOT = str(Path(__file__).resolve().parent.parent)
+if PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, PACKAGE_ROOT)
+
+from krca.__main__ import main
 
 
 if __name__ == "__main__":

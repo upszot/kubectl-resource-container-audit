@@ -74,15 +74,16 @@ El instalador:
 - Descarga el código de la rama indicada (por defecto `master`) en un solo archivo comprimido.
 - Instala las dependencias Python en un **venv aislado** dentro del directorio de instalación, sin modificar los paquetes del sistema.
 - Lee la versión desde `VERSION`, la copia junto a la instalación y verifica que el comando instalado reporte esa misma versión.
+- Elimina paquetes `krca` residuales del venv y detecta otros `kubectl-krca` con prioridad en el `PATH`.
 - Verifica la instalación y deja disponibles los comandos `krca` y `kubectl-krca`.
 - Es idempotente: se puede volver a ejecutar para actualizar.
 
 ### Opciones del instalador
 
 ```bash
-# Instalar la rama actual (v6.0)
-curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v6.0/install.sh \
-  | sudo bash -s -- --branch v6.0
+# Instalar la rama actual (v6.1.2)
+curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/v6.1.2/install.sh \
+  | sudo bash -s -- --branch v6.1.2
 
 # Instalar otra rama, tag o commit específico
 curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh \
@@ -94,8 +95,23 @@ sudo ./install.sh --source .
 # Directorios personalizados
 sudo ./install.sh --prefix /opt/krca --bin-dir /usr/local/bin
 
+# Diagnosticar una instalación existente (versión, binario, PATH)
+./install.sh --doctor
+
 # Ver todas las opciones
 ./install.sh --help
+```
+
+### Diagnóstico de versión
+
+Si `kubectl krca --version` no coincide con la versión instalada, ejecutá
+`./install.sh --doctor`: compara el `VERSION` instalado, el paquete que importa
+Python, el binario de la instalación y el que realmente resuelve `PATH`, y
+señala si otro `kubectl-krca` (pipx, Homebrew, instalación anterior) tiene
+prioridad.
+
+```bash
+./install.sh --doctor --prefix /usr/local/share/kubectl-resource-container-audit
 ```
 
 ### Desinstalación

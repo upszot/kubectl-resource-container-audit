@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KRCA Installer v7.1
+# KRCA Installer v7.2
 #
 # Instalación recomendada:
 #   curl -fsSL https://raw.githubusercontent.com/upszot/kubectl-resource-container-audit/master/install.sh | sudo bash
@@ -9,7 +9,7 @@
 
 set -Eeuo pipefail
 
-INSTALLER_VERSION="7.1"
+INSTALLER_VERSION="7.2"
 KRCA_REPO="${KRCA_REPO:-upszot/kubectl-resource-container-audit}"
 DEFAULT_INSTALL_DIR="/usr/local/share/kubectl-resource-container-audit"
 DEFAULT_BIN_DIR="/usr/local/bin"
@@ -44,6 +44,9 @@ WORK_DIR=""
 STAGE_DIR=""
 VENV_DIR=""
 APP_VERSION=""
+PATH_BIN=""
+RESOLVED_BIN=""
+REPORTED_KUBECTL_VERSION=""
 
 info()  { printf "${BLUE}[INFO]${NC} %s\n" "$*"; }
 ok()    { printf "${GREEN}[ OK ]${NC} %s\n" "$*"; }
@@ -63,6 +66,7 @@ Opciones:
   --branch REF       Rama, tag o commit a instalar (def. master)
   --source DIR       Instala desde un directorio local, sin descargar
   --no-deps          No crea el venv ni instala dependencias Python
+  --doctor           Diagnostica una instalación existente (no instala)
   --uninstall        Desinstala KRCA
   -y, --yes          No pedir confirmación al desinstalar
   -h, --help         Muestra esta ayuda
@@ -75,6 +79,7 @@ Ejemplos:
   sudo ./install.sh
   sudo ./install.sh --branch v5.1
   sudo ./install.sh --source .
+  sudo ./install.sh --doctor
   sudo ./install.sh --prefix /opt/krca --bin-dir /usr/local/bin
   sudo ./install.sh --uninstall --yes
 
@@ -132,6 +137,10 @@ parse_args() {
                 ;;
             --no-deps)
                 INSTALL_DEPS=0
+                shift
+                ;;
+            --doctor)
+                ACTION="doctor"
                 shift
                 ;;
             --uninstall)
@@ -341,6 +350,23 @@ install_dependencies() {
     ok "Dependencias instaladas en el venv"
 }
 
+# Elimina una distribución 'krca' residual del venv. Si quedó de pruebas
+# anteriores (pip install ., wheel local, etc.) puede tapar el código
+# instalado y reportar una versión distinta.
+purge_venv_krca() {
+    local venv_python="$INSTALL_DIR/venv/bin/python3"
+
+    [ -x "$venv_python" ] || return 0
+    "$venv_python" -m pip show krca >/dev/null 2>&1 || return 0
+
+    info "Eliminando paquete krca residual del venv..."
+    if "$venv_python" -m pip uninstall -y krca >/dev/null 2>&1; then
+        ok "Paquete krca residual eliminado"
+    else
+        warn "No se pudo eliminar el paquete krca residual del venv"
+    fi
+}
+
 install_files() {
     info "Instalando archivos en $INSTALL_DIR..."
 
@@ -381,6 +407,18 @@ install_files() {
     done
     rmdir "$STAGE_DIR" 2>/dev/null || true
     STAGE_DIR=""
+
+    # El VERSION copiado es la fuente de verdad de la instalación: debe ser
+    # exactamente el mismo que se detectó en el código fuente.
+    local installed_version=""
+    [ -f "$INSTALL_DIR/VERSION" ] \
+        && installed_version="$(head -n 1 "$INSTALL_DIR/VERSION" | tr -d '[:space:]')"
+    if [ -z "$installed_version" ]; then
+        die "No se pudo instalar $INSTALL_DIR/VERSION"
+    fi
+    if [ -n "$APP_VERSION" ] && [ "$installed_version" != "$APP_VERSION" ]; then
+        die "VERSION instalado ($installed_version) distinto al esperado ($APP_VERSION)"
+    fi
 
     # Permisos consistentes. El código queda propiedad de root cuando se
     # instala con sudo (cp -R no preserva el owner del checkout).
@@ -441,57 +479,255 @@ remove_legacy_env() {
     fi
 }
 
+# --- Diagnóstico de versión e instalación ------------------------------------
+
+# Resuelve un symlink de forma portable (sin depender de readlink -f).
+resolve_link() {
+    local path="$1"
+    local target
+
+    while [ -L "$path" ]; do
+        target="$(readlink "$path")"
+        case "$target" in
+            /*) path="$target" ;;
+            *) path="$(dirname "$path")/$target" ;;
+        esac
+    done
+
+    printf '%s\n' "$path"
+}
+
+resolve_python() {
+    if [ -x "$INSTALL_DIR/venv/bin/python3" ]; then
+        printf '%s\n' "$INSTALL_DIR/venv/bin/python3"
+    else
+        printf '%s\n' "$PYTHON_BIN"
+    fi
+}
+
+installed_version_file() {
+    [ -f "$INSTALL_DIR/VERSION" ] || return 0
+    head -n 1 "$INSTALL_DIR/VERSION" | tr -d '[:space:]'
+}
+
+# Imprime un atributo del paquete instalado (__version__, __file__).
+python_krca_field() {
+    local field="$1"
+    local python
+    python="$(resolve_python)"
+
+    (cd / && PYTHONPATH="$INSTALL_DIR" "$python" \
+        -c "import krca; print(krca.${field})" 2>/dev/null) || true
+}
+
+bin_command_version() {
+    [ -x "$BIN_DIR/kubectl-krca" ] || return 0
+    "$BIN_DIR/kubectl-krca" --version 2>/dev/null || true
+}
+
+path_binary() {
+    command -v kubectl-krca 2>/dev/null || true
+}
+
+check_path_resolution() {
+    PATH_BIN="$(path_binary)"
+
+    if [ -z "$PATH_BIN" ]; then
+        warn "$BIN_DIR no está en PATH; 'kubectl krca' no encontrará el plugin."
+        return 0
+    fi
+
+    RESOLVED_BIN="$(resolve_link "$PATH_BIN")"
+    local expected_bin
+    expected_bin="$(resolve_link "$BIN_DIR/kubectl-krca")"
+
+    if [ "$RESOLVED_BIN" != "$expected_bin" ]; then
+        warn "Hay otro 'kubectl-krca' con prioridad en PATH:"
+        warn "  en uso:    $PATH_BIN -> $RESOLVED_BIN"
+        warn "  instalado: $expected_bin"
+        warn "Por eso 'kubectl krca' puede mostrar una versión distinta."
+        warn "Revisá con: type -a kubectl-krca  (y luego: sudo ./install.sh --doctor)"
+    else
+        ok "kubectl-krca resuelve a la instalación ($PATH_BIN)"
+    fi
+}
+
 verify_install() {
     info "Verificando instalación..."
 
-    local python="$PYTHON_BIN"
-    if [ -n "$VENV_DIR" ] && [ -x "$VENV_DIR/bin/python3" ]; then
-        python="$VENV_DIR/bin/python3"
-    fi
+    local expected="${APP_VERSION:-}"
+    local file_version python_version python_file command_version
+    file_version="$(installed_version_file)"
+    python_version="$(python_krca_field __version__)"
+    python_file="$(python_krca_field __file__)"
+    command_version="$(bin_command_version)"
 
-    if (cd / && PYTHONPATH="$INSTALL_DIR" "$python" -c "import krca") >/dev/null 2>&1; then
-        local version
-        version="$(cd / && PYTHONPATH="$INSTALL_DIR" "$python" -c "import krca; print(krca.__version__)" 2>/dev/null || echo "?")"
-        if [ -n "$APP_VERSION" ] && [ "$version" != "$APP_VERSION" ]; then
+    [ -n "$expected" ] || expected="$file_version"
+
+    if [ -z "$file_version" ]; then
+        die "No se encontró $INSTALL_DIR/VERSION"
+    fi
+    if [ -n "$expected" ] && [ "$file_version" != "$expected" ]; then
+        die "VERSION instalado (v$file_version) distinto al esperado (v$expected)"
+    fi
+    ok "VERSION instalado: v$file_version"
+
+    if [ -z "$python_version" ]; then
+        if [ "$INSTALL_DEPS" -eq 1 ]; then
+            die "No se pudo importar krca con $(resolve_python)"
+        fi
+        warn "No se pudo importar krca; revisá tabulate/kubernetes"
+    else
+        case "$python_file" in
+            "$INSTALL_DIR"/*) ;;
+            *) warn "import krca resuelve fuera de la instalación: $python_file" ;;
+        esac
+
+        if [ "$python_version" != "$expected" ]; then
             if [ "$INSTALL_DEPS" -eq 1 ]; then
-                die "Versión inconsistente: se esperaba v${APP_VERSION} pero el paquete reporta v${version}"
-            else
-                warn "Versión inconsistente: se esperaba v${APP_VERSION} pero el paquete reporta v${version}"
+                die "El módulo reporta v$python_version (esperado v$expected) desde $python_file"
             fi
+            warn "El módulo reporta v$python_version (esperado v$expected)"
         else
-            ok "Paquete Python importable (v${version})"
+            ok "Paquete Python importable (v$python_version)"
         fi
-    elif [ "$INSTALL_DEPS" -eq 1 ]; then
-        die "No se pudo importar el paquete krca. Revisá la instalación de dependencias."
-    else
-        warn "No se pudo importar el paquete krca. Revisá las dependencias (probá sin --no-deps)."
     fi
 
-    if [ -x "$BIN_DIR/kubectl-krca" ]; then
-        local output
-        if output="$("$BIN_DIR/kubectl-krca" --version 2>&1)"; then
-            if [ -n "$APP_VERSION" ]; then
-                case "$output" in
-                    *"v${APP_VERSION}"*) ok "$output" ;;
-                    *)
-                        if [ "$INSTALL_DEPS" -eq 1 ]; then
-                            die "El comando reporta una versión distinta a v${APP_VERSION}: $output"
-                        else
-                            warn "El comando reporta una versión distinta a v${APP_VERSION}: $output"
-                        fi
-                        ;;
-                esac
-            else
-                ok "$output"
-            fi
-        elif [ "$INSTALL_DEPS" -eq 1 ]; then
-            die "El comando kubectl-krca no respondió correctamente: $output"
-        else
-            warn "El comando kubectl-krca no respondió correctamente: $output"
+    if [ -z "$command_version" ]; then
+        if [ "$INSTALL_DEPS" -eq 1 ]; then
+            die "No responde $BIN_DIR/kubectl-krca --version"
+        fi
+        warn "No responde $BIN_DIR/kubectl-krca --version"
+    else
+        case "$command_version" in
+            *"v${expected}"*) ok "$command_version" ;;
+            *)
+                if [ "$INSTALL_DEPS" -eq 1 ]; then
+                    die "El comando reporta '$command_version' (esperado v$expected)"
+                fi
+                warn "El comando reporta '$command_version' (esperado v$expected)"
+                ;;
+        esac
+    fi
+
+    check_path_resolution
+
+    if command -v kubectl >/dev/null 2>&1; then
+        REPORTED_KUBECTL_VERSION="$(kubectl krca --version 2>&1 || true)"
+        case "$REPORTED_KUBECTL_VERSION" in
+            *"v${expected}"*) ok "kubectl krca: $REPORTED_KUBECTL_VERSION" ;;
+            *)
+                warn "kubectl krca reporta '$REPORTED_KUBECTL_VERSION' (esperado v$expected)."
+                warn "Ejecutá sin sudo para diagnosticar: ./install.sh --doctor"
+                ;;
+        esac
+    fi
+}
+
+doctor() {
+    if [ ! -d "$INSTALL_DIR" ]; then
+        die "No hay una instalación de KRCA en $INSTALL_DIR"
+    fi
+
+    printf "${BOLD}=== KRCA Doctor ===${NC}\n"
+    printf "  Instalación: %s\n" "$INSTALL_DIR"
+    printf "  Binarios:    %s\n" "$BIN_DIR"
+    printf "  Python:      %s\n" "$(resolve_python)"
+
+    local problems=0
+    local file_version python_version python_file command_version
+    file_version="$(installed_version_file)"
+    python_version="$(python_krca_field __version__)"
+    python_file="$(python_krca_field __file__)"
+    command_version="$(bin_command_version)"
+
+    if [ -n "$file_version" ]; then
+        ok "VERSION instalado: v$file_version"
+    else
+        warn "Falta $INSTALL_DIR/VERSION"
+        problems=$((problems + 1))
+    fi
+
+    if [ -n "$python_version" ]; then
+        printf "  krca:        %s\n" "$python_file"
+        printf "  __version__: %s\n" "$python_version"
+
+        if [ -n "$file_version" ] && [ "$python_version" != "$file_version" ]; then
+            warn "La versión importada no coincide con el VERSION instalado"
+            problems=$((problems + 1))
+        fi
+
+        case "$python_file" in
+            "$INSTALL_DIR"/*) ;;
+            *)
+                warn "El paquete se importa desde fuera de la instalación"
+                problems=$((problems + 1))
+                ;;
+        esac
+    else
+        warn "No se pudo importar krca"
+        problems=$((problems + 1))
+    fi
+
+    if [ -n "$command_version" ]; then
+        printf "  kubectl-krca: %s\n" "$command_version"
+        if [ -n "$file_version" ]; then
+            case "$command_version" in
+                *"v${file_version}"*) ;;
+                *)
+                    warn "El comando no reporta la versión instalada"
+                    problems=$((problems + 1))
+                    ;;
+            esac
         fi
     else
-        die "No se encontró el ejecutable $BIN_DIR/kubectl-krca"
+        warn "$BIN_DIR/kubectl-krca no responde"
+        problems=$((problems + 1))
     fi
+
+    PATH_BIN="$(path_binary)"
+    if [ -z "$PATH_BIN" ]; then
+        warn "kubectl-krca no está en PATH"
+        problems=$((problems + 1))
+    else
+        RESOLVED_BIN="$(resolve_link "$PATH_BIN")"
+        printf "  PATH:        %s -> %s\n" "$PATH_BIN" "$RESOLVED_BIN"
+        if [ "$RESOLVED_BIN" != "$(resolve_link "$BIN_DIR/kubectl-krca")" ]; then
+            warn "Otro binario tiene prioridad sobre la instalación"
+            problems=$((problems + 1))
+        fi
+    fi
+
+    if command -v kubectl >/dev/null 2>&1; then
+        REPORTED_KUBECTL_VERSION="$(kubectl krca --version 2>&1 || true)"
+        printf "  kubectl krca: %s\n" "$REPORTED_KUBECTL_VERSION"
+        if [ -n "$file_version" ]; then
+            case "$REPORTED_KUBECTL_VERSION" in
+                *"v${file_version}"*) ;;
+                *)
+                    warn "'kubectl krca' no reporta la versión instalada"
+                    problems=$((problems + 1))
+                    ;;
+            esac
+        fi
+    fi
+
+    if [ -x "$INSTALL_DIR/venv/bin/pip" ] \
+        && "$INSTALL_DIR/venv/bin/pip" show krca >/dev/null 2>&1; then
+        warn "Hay una distribución 'krca' instalada dentro del venv (puede tapar el código instalado)"
+        "$INSTALL_DIR/venv/bin/pip" show krca 2>/dev/null | sed -n 's/^Version: /  Versión en venv: /p'
+        problems=$((problems + 1))
+    fi
+
+    echo
+    if [ "$problems" -eq 0 ]; then
+        ok "Instalación consistente (v$file_version)"
+        return 0
+    fi
+
+    warn "Se encontraron $problems inconsistencia(s)."
+    printf "  Para reinstalar limpio: sudo %s --source .\n" "$(basename "$0")"
+    return 1
 }
 
 print_summary() {
@@ -500,9 +736,19 @@ print_summary() {
     if [ -n "$APP_VERSION" ]; then
         printf "  Versión KRCA:      v%s\n" "$APP_VERSION"
     fi
+    printf "  Instalado en:      %s\n" "$INSTALL_DIR"
+    printf "  Binario:           %s\n" "$BIN_DIR/kubectl-krca"
+    if [ -n "${REPORTED_KUBECTL_VERSION:-}" ]; then
+        printf "  kubectl krca:      %s\n" "$REPORTED_KUBECTL_VERSION"
+    fi
     printf "  Comando principal: ${YELLOW}kubectl krca --help${NC}\n"
     printf "  Alias directo:     ${YELLOW}krca --help${NC}\n"
-    printf "  Instalado en:      %s\n" "$INSTALL_DIR"
+
+    if [ -n "${RESOLVED_BIN:-}" ] \
+        && [ "$RESOLVED_BIN" != "$(resolve_link "$BIN_DIR/kubectl-krca")" ]; then
+        warn "kubectl krca usa $RESOLVED_BIN (no la instalación recién realizada)."
+        warn "Desinstalá ese binario o reordená PATH; luego ejecutá: ./install.sh --doctor"
+    fi
 
     case ":$PATH:" in
         *":$BIN_DIR:"*) ;;
@@ -568,6 +814,12 @@ uninstall() {
 main() {
     parse_args "$@"
 
+    if [ "$ACTION" = "doctor" ]; then
+        printf "${BOLD}=== KRCA Installer v${INSTALLER_VERSION} ===${NC}\n"
+        doctor
+        return $?
+    fi
+
     printf "${BOLD}=== KRCA Installer v${INSTALLER_VERSION} ===${NC}\n"
 
     if [ "$ACTION" = "uninstall" ]; then
@@ -580,6 +832,7 @@ main() {
     check_python_version
     prepare_source
     prepare_venv
+    purge_venv_krca
     install_dependencies
     install_files
     setup_symlinks

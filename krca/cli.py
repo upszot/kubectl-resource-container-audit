@@ -258,7 +258,7 @@ Umbrales configurables:
 Análisis histórico (Prometheus):
   --history             Agregar columnas históricas (requiere -o wide)
   --history-window DUR  Ventana de análisis (default: 7d; ej: 90m, 12h, 7d)
-  --history-step DUR    Paso de muestreo (default: automático)
+  --history-step DUR    Paso de muestreo (default: 5m)
   --prometheus-namespace NS
                         Namespace del servicio de Prometheus
   --prometheus-service NAME

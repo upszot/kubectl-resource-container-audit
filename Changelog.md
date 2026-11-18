@@ -1,5 +1,37 @@
 # Changelog
 
+## Version 6.1.2
+- [X] FIX:
+  - **Versión mostrada por `kubectl krca`**: el wrapper ahora antepone
+    `$INSTALL_DIR` a `PYTHONPATH` también en modo venv, por lo que el código
+    instalado tiene prioridad sobre cualquier copia de `krca` que haya quedado
+    en el `site-packages` del venv, del usuario o de pipx/Homebrew.
+  - **Resolución de versión determinista**: `krca/__init__.py` lee el `VERSION`
+    de la instalación (o `KRCA_VERSION_FILE`) y sólo usa la metadata de
+    `importlib.metadata` cuando el paquete se carga realmente desde
+    `site-packages`/`dist-packages`.
+  - **Instalador 7.2**:
+    - Valida que el `VERSION` copiado coincida con el del código fuente.
+    - Purga distribuciones `krca` residuales del venv antes de instalar.
+    - Verifica la versión con el comando real, sin forzar `PYTHONPATH`.
+    - Detecta otros binarios `kubectl-krca` con prioridad en el `PATH` y muestra
+      cuál se está usando y cuál es el instalado.
+    - Nueva opción `--doctor` para diagnosticar una instalación existente sin
+      reinstalar (`sudo ./install.sh --doctor`).
+    - El resumen final muestra el binario, la ruta instalada y la versión que
+      reporta `kubectl krca`.
+  - `scripts/krca` antepone el directorio del paquete en `sys.path` antes de
+    importar, evitando mezclas con copias externas.
+  - El `--help` ahora informa el default real de `--history-step` (`5m`).
+
+## Version 6.1.1
+- [X] FIX:
+  - `--history` activa automáticamente el formato `wide` cuando no se indica
+    otro formato de salida.
+  - `parser.set_defaults(wide_output=False)` evita errores cuando se usa
+    `--history` sin `-o wide`.
+  - `VERSION` actualizado a `6.1.1`.
+
 ## Version 6.1
 - [X] Added:
   - **Default de `--history-step`**: el paso de muestreo histórico ahora default a `5m` en lugar de `None`/automático.
