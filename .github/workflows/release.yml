@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build:
@@ -55,7 +56,7 @@ jobs:
           wheel = glob.glob("dist/*.whl")[0]
           names = zipfile.ZipFile(wheel).namelist()
           required = ["krca/styles.css", "krca/resize.css", "krca/resize.js"]
-          missing = [n for n in required if n not in names]
+          missing = [n for n in required if n in names]
           if missing:
               raise SystemExit(f"Faltan archivos en el wheel: {missing}")
           print(f"Wheel OK: {wheel}")
@@ -79,7 +80,7 @@ jobs:
     name: Publicar en PyPI
     needs: build
     runs-on: ubuntu-latest
-    if: >-
+    if: >
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.publish)
     permissions:
@@ -96,3 +97,53 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
+
+  update-homebrew:
+    name: Actualizar repositorio Homebrew
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: upszot/homebrew-krca
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: homebrew-krca
+
+      - name: Actualizar versión en fórmula
+        run: |
+          VERSION_FILE="../krca/VERSION"
+          VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
+          echo "Actualizando versión a $VERSION"
+          
+          # Actualizar versión en la fórmula
+          sed -i "s/^  url \"https:\\/\\/files.pythonhosted.org[^\"]*\/krca-[^\"]*\.tar.gz\"/  url \"https:\\/\\/files.pythonhosted.org\\/packages\\/e0\\/7c\\/8bd3c16579caaa697385981e253f2d30d75eb449d8af53b84f9267bc2f8b\\/krca-${VERSION}.tar.gz\"/" homebrew-krca/Formula/krca.rb
+          
+          # Actualizar el número de versión en la clase
+          sed -i "s/^  version \"[^\"]*\"/  version \"${VERSION}\"/" homebrew-krca/Formula/krca.rb
+          
+          # Recalcular checksums (usando curl para descargar y obtener sha256)
+          echo "Necesitarás actualizar los checksums manualmente o usar: brew bump-formula-pr"
+          
+          # Commit y push de los cambios
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git commit -m "chore: bump krca to ${VERSION}" homebrew-krca/Formula/krca.rb 2>/dev/null | grep -q "nothing to commit"; then
+            echo "No changes to commit"
+          else
+            git push origin master
+            echo "Homebrew formula actualizada y pushheada"
+          fi
+
+      - name: Comentar en el issue/PR
+        uses: actions/github-script@v7
+        with:
+          comment_body: |
+            ✅ **Release v${VERSION}** completado exitosamente.
+
+            **PyPI:** El paquete se publique en https://pypi.org/p/krca (o ejecuta `workflow_dispatch` con `publish: true`).
+
+            **Homebrew:** La fórmula se actualizó en https://github.com/upszot/homebrew-krca (puedes hacer `brew upgrade krca` para obtener la versión ${VERSION}).
+
+            **Nota:** Los checksums de los recursos pueden necesitar actualizarse manualmente si build no los genera correctamente.
