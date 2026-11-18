@@ -192,18 +192,62 @@ class PrometheusClient:
         candidates = self._explicit_service_candidates()
         if not candidates:
             if self.service:
+                # Usuario explicitó un servicio que no fue encontrado
                 raise PrometheusError(
                     f"No se encontró el servicio '{self.service}'"
-                    f"{' en el namespace ' + self.namespace if self.namespace else ''} "
-                    "con un puerto 9090/9091.\n"
-                    "Verifique el nombre con: kubectl get svc -A | grep -i prometheus"
+                    f" en el namespace {self.namespace if self.namespace else ''}"
+                    " con un puerto 9090/9091.\n"
+                    " Verifique el nombre con: kubectl get svc -A | grep -i prometheus"
                 )
-            raise PrometheusError(
-                "No se encontró un servicio de Prometheus en el cluster.\n"
-                "Verifique que kube-prometheus-stack (o Thanos Querier) esté desplegado "
-                "o indique el servicio con --prometheus-namespace/--prometheus-service."
-            )
-
+            # Auto-detección: listar servicios y aplicar NAME_HINTS / PREFERRED_NAMESPACES
+            all_services = self._list_services()
+            name_hints = ['prometheus', 'thanos-querier']
+            ns_hints = ['monitoring', 'openshift-monitoring', 'prometheus', 'observability']
+            candidates = []
+            for svc in all_services:
+                metadata = svc.get('metadata', {})
+                name = metadata.get('name', '')
+                namespace = metadata.get('namespace', '')
+                if not any(hint in name.lower() for hint in name_hints):
+                    continue
+                if namespace in ns_hints:
+                    for port in self._candidate_ports(svc):
+                        score = 0
+                        if namespace in ns_hints:
+                            score += 50
+                        if port == 9090:
+                            score += 10
+                        candidates.append((score, namespace, name, port))
+            if not candidates:
+                # Fallback: buscar cualquier servicio con 'prometheus' en el nombre
+                for svc in all_services:
+                    metadata = svc.get('metadata', {})
+                    name = metadata.get('name', '')
+                    namespace = metadata.get('namespace', '')
+                    if 'prometheus' in name.lower():
+                        for port in self._candidate_ports(svc):
+                            candidates.append((0, namespace, name, port))
+            if not candidates:
+                raise PrometheusError(
+                    "No se encontró un servicio de Prometheus en el cluster.\n"
+                    "Verifique que kube-prometheus-stack (o Thanos Querier) esté desplegado "
+                    "o indique el servicio con --prometheus-namespace/--prometheus-service."
+                )
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            _, namespace, name, port = candidates[0]
+            self._log(f"Auto-detectando Prometheus en {namespace}/{name}:{port}")
+            try:
+                self._verify(namespace, name, port)
+                self._target = (namespace, name, port)
+                self._log(f"Usando {namespace}/{name}:{port}")
+                return self._target
+            except PrometheusError:
+                # Si el auto-detect falló, lanzar error original
+                raise PrometheusError(
+                    "No se encontró un servicio de Prometheus en el cluster.\n"
+                    "Verifique que kube-prometheus-stack (o Thanos Querier) esté desplegado "
+                    "o indique el servicio con --prometheus-namespace/--prometheus-service."
+                )
         last_error = None
         for namespace, name, port in candidates[:self.MAX_DISCOVERY_ATTEMPTS]:
             self._log(f"Probando Prometheus en {namespace}/{name}:{port}")

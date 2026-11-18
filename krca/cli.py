@@ -12,7 +12,7 @@ DEFAULT_DIFF_PCT = 300
 DEFAULT_UNDERUSE_PCT = 5
 
 # Ventana histórica por defecto
-DEFAULT_HISTORY_WINDOW = "24h"
+# Versión por defecto usada en --history-window: 7d (antes 24h)
 DEFAULT_PROMETHEUS_TIMEOUT = 60
 
 # Columnas históricas (requieren Prometheus)
@@ -132,15 +132,15 @@ def create_parser():
     )
     history_group.add_argument(
         "--history-window",
-        default=DEFAULT_HISTORY_WINDOW,
+        default="7d",
         metavar="DUR",
-        help=f"Ventana de análisis histórico (default: {DEFAULT_HISTORY_WINDOW}; ej: 90m, 12h, 7d)"
+        help=f"Ventana de análisis histórico (default: 7d; ej: 90m, 12h)"
     )
     history_group.add_argument(
         "--history-step",
-        default=None,
+        default="5m",
         metavar="DUR",
-        help="Paso de muestreo histórico (default: automático según la ventana)"
+        help="Paso de muestreo histórico (default: 5m; ej: 90m, 12h)"
     )
     history_group.add_argument(
         "--prometheus-namespace",
@@ -256,7 +256,7 @@ Umbrales configurables:
 
 Análisis histórico (Prometheus):
   --history             Agregar columnas históricas (requiere -o wide)
-  --history-window DUR  Ventana de análisis (default: {DEFAULT_HISTORY_WINDOW}; ej: 90m, 12h, 7d)
+  --history-window DUR  Ventana de análisis (default: 7d; ej: 90m, 12h, 7d)
   --history-step DUR    Paso de muestreo (default: automático)
   --prometheus-namespace NS
                         Namespace del servicio de Prometheus
