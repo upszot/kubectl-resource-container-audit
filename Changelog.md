@@ -1,8 +1,16 @@
 # Changelog
 
-## Version 6.0
+## Version 6.1
 - [X] Added:
-  - **Empaquetado para PyPI**: nuevo `pyproject.toml` con Hatchling. El paquete
+  - **Default de `--history-step`**: el paso de muestreo histórico ahora default a `5m` en lugar de `None`/automático.
+  - **Default de `--history-window`**: la ventana histórica ahora default a `7d` en lugar de `24h`.
+  - **Auto-detección de Prometheus**: `krca` puede descubrir automáticamente el servicio de Prometheus usando los nombres sugeridos (`prometheus`, `thanos-querier`) y namespaces estándar (`monitoring`, `openshift-monitoring`, `prometheus`, `observability`), por lo que `krca --history` ahora funciona sin necesidad de especificar `--prometheus-namespace` ni `--prometheus-service`.
+  - **Workflow de release**: `.github/workflows/release.yml` construye `sdist` y `wheel`, valida artefactos y publica en PyPI con Trusted Publishing al crear un tag `v*` (o manualmente).
+- [X] FIX:
+  - `scripts/krca` ya no puede fallar con `UnboundLocalError` si `parse_args()` lanza una excepción: `args` se inicializa antes del bloque `try`.
+  - La versión reportada por el paquete ahora es `6.0`, consistente con [`VERSION`](./VERSION) y la rama `v6.0`.
+
+## Version 6.0
     se publica como `krca` y se puede instalar con `pip install krca` o
     `pipx install krca`.
   - **Entry points estándar**: `krca` y `kubectl-krca` se generan
